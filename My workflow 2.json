@@ -34,7 +34,7 @@
     {
       "parameters": {
         "method": "POST",
-        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=AIzaSyALIOdoNYh1S-Hl1ZaNn1FNnkjcv5g1Q6A",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=Tu API KEY",
         "sendHeaders": true,
         "specifyHeaders": "json",
         "jsonHeaders": "{\"Content-Type\": \"application/json\"}",
