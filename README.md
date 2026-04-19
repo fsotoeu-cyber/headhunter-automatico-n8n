@@ -1,5 +1,7 @@
 # 🤖 Headhunter Virtual con IA | End-to-End Data & Automation Solution
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 > Transformando correos de LinkedIn en decisiones estratégicas de empleo mediante IA, automatización y Business Intelligence.
 
 ---
