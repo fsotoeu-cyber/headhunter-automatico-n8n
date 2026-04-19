@@ -12,11 +12,11 @@ Diseñé una solución end-to-end de datos e IA para automatizar la priorizació
 
 ## 📸 Vista del Proyecto
 
-![Scores](01_Scores%20_y%20_metricas%20_clave.png)
+![Scores](assets/screenshots/01_Scores%20_y%20_metricas%20_clave.png)
 
-![Flujo](02_Flujo%20_n8n.png)
+![Flujo](assets/screenshots/02_Flujo%20_n8n.png)
 
-![Dashboard](03_Dashboard%20_Looker_Studio.png)
+![Dashboard](assets/screenshots/03_Dashboard%20_Looker_Studio.png)
 
 ---
 
