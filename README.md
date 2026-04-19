@@ -12,7 +12,7 @@ Diseñé una solución end-to-end de datos e IA para automatizar la priorizació
 
 ## 📸 Vista del Proyecto
 
-![Scores y Métricas Clave](01_Scores_y_métricas_clave.png)
+![Scores y Métricas Clave](01_Scores_y_m%C3%A9tricas_clave.png)
 
 ![Flujo n8n Completo](02_Flujo_n8n.png)
 
