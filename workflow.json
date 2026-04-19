@@ -1,0 +1,705 @@
+{
+  "name": "My workflow 4",
+  "nodes": [
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "q": "from:jobalerts-noreply@linkedin.com \"Nuevos empleos coinciden con tu alerta\" is:unread"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -448,
+        -64
+      ],
+      "id": "cd82bdc4-94b4-4569-b8f9-e31ebb82d4a7",
+      "name": "Gmail Trigger",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JpUyBbkBfKqInJKI",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "messageId": "={{ $json.id }}",
+        "simple": false,
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        -224,
+        -64
+      ],
+      "id": "0b2fac24-5127-4b2d-bf59-5a6fce6152ba",
+      "name": "Get a message",
+      "webhookId": "c04711f6-4341-4a67-bff8-1e8a8936857c",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JpUyBbkBfKqInJKI",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const item = $input.first().json;\n\n// Extraer remitente\nlet fromString = '';\nif (typeof item.from === 'string') fromString = item.from;\nelse if (item.from?.text) fromString = item.from.text;\nelse if (item.from?.value?.[0]) {\n  const v = item.from.value[0];\n  fromString = `${v.name || ''} <${v.address || ''}>`;\n} else fromString = JSON.stringify(item.from);\n\nconst subject = item.subject || '';\n\n// Usar el contenido HTML del correo para obtener más texto\nlet htmlContent = item.html || '';\nlet bodyText = htmlContent\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nif (bodyText.length < 200) {\n  bodyText = item.text || '';\n}\n\nconst maxChars = 8000;\nif (bodyText.length > maxChars) {\n  bodyText = bodyText.substring(0, maxChars);\n}\n\nbodyText = bodyText.replace(/-{5,}/g, '').replace(/\\n{3,}/g, '\\n\\n');\n\nconst prompt = `Eres un asistente de reclutamiento. Extrae del siguiente correo TODAS las ofertas de trabajo (máximo 5). Para cada oferta, devuelve un JSON con esta estructura EXACTA:\n{\n  \"ofertas\": [\n    {\n      \"titulo\": \"\",\n      \"empresa\": \"\",\n      \"ubicacion\": \"\",\n      \"sector\": \"\",\n      \"tamano\": \"\",\n      \"requisitos_tecnicos\": [],\n      \"anos_experiencia\": null,\n      \"responsabilidades\": [],\n      \"herramientas\": [],\n      \"url_oferta\": null,\n      \"resumen\": \"\",\n      \"experiencia_requerida\": null,\n      \"modalidad\": null,\n      \"idioma_requerido\": null,\n      \"nivel_idioma\": null\n    }\n  ]\n}\n- sector: industria de la empresa (ej. \"Banca\", \"Tecnología\", etc.). Si no se menciona, pon null.\n- tamano: número de empleados (ej. \"De 1.001 a 5.000 empleados\", \"Menos de 100\", etc.). Si no se menciona, pon null.\n- experiencia_requerida: años de experiencia solicitados (número, ej. 3). Si no se menciona, pon null.\n- modalidad: \"remoto\", \"presencial\" o \"híbrido\". Si no se menciona, pon null.\n- idioma_requerido: idioma solicitado (ej. \"inglés\"). Si no se menciona, pon null.\n- nivel_idioma: nivel requerido (ej. \"básico\", \"intermedio\", \"avanzado\", \"nativo\"). Si no se menciona, pon null.\nSi no hay ofertas, devuelve {\"ofertas\": []}. No añadas texto adicional fuera del JSON.\n\n**IMPORTANTE**: Si el correo NO incluye una lista explícita de requisitos técnicos, INFIERE hasta 5 habilidades técnicas probables para el puesto basándote en su título y sector. USA ESTAS HABILIDADES INFERIDAS ÚNICAMENTE para completar el campo 'requisitos_tecnicos' del JSON interno y así mejorar el cálculo de compatibilidad. NO INCLUYAS estas habilidades inferidas en el campo 'resumen' ni en ningún otro lugar que pueda ser interpretado como un requisito oficial de la oferta.\n\nCorreo:\nDe: ${fromString}\nAsunto: ${subject}\nCuerpo: ${bodyText}`;\n\nconst requestBody = {\n  model: \"llama-3.3-70b-versatile\",\n  messages: [\n    {\n      role: \"user\",\n      content: prompt\n    }\n  ],\n  temperature: 0,\n  max_tokens: 4000\n};\n\nreturn { body: JSON.stringify(requestBody) };\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -16,
+        -64
+      ],
+      "id": "b2fb4bd6-25cc-493b-b6eb-da85860b1e36",
+      "name": "Preparar prompt Gemini"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener la respuesta de Gemini desde el nodo HTTP Request\nconst response = $input.first().json;\n\n// Extraer el texto de la respuesta (puede venir en diferentes formatos)\nlet text = '';\ntry {\n  text = response.candidates?.[0]?.content?.parts?.[0]?.text || '';\n} catch (e) {\n  text = '';\n}\n\n// Si no hay texto, intentar con otras estructuras (por si la API cambia)\nif (!text && response.choices?.[0]?.message?.content) {\n  text = response.choices[0].message.content; // Formato alternativo\n}\n\n// Limpiar el texto: eliminar markdown, espacios, etc.\nlet cleanText = text.trim();\n\n// Si la respuesta viene envuelta en triple backticks json ... ```, extraer solo el JSON\nconst jsonMatch = cleanText.match(/```json\\s*([\\s\\S]*?)\\s*```/);\nif (jsonMatch) {\n  cleanText = jsonMatch[1];\n} else {\n  // Si no tiene triple backticks, buscar un objeto JSON directamente\n  const objMatch = cleanText.match(/\\{[\\s\\S]*\\}/);\n  if (objMatch) {\n    cleanText = objMatch[0];\n  }\n}\n\n// Intentar parsear el JSON\nlet ofertas = { ofertas: [] };\ntry {\n  const parsed = JSON.parse(cleanText);\n  // Asegurar que tenga la propiedad \"ofertas\"\n  if (parsed.ofertas && Array.isArray(parsed.ofertas)) {\n    ofertas = parsed;\n  } else if (Array.isArray(parsed)) {\n    // Si devolvió directamente un array\n    ofertas = { ofertas: parsed };\n  } else if (parsed.titulo) {\n    // Si devolvió una sola oferta (no array)\n    ofertas = { ofertas: [parsed] };\n  }\n} catch (e) {\n  console.error('Error parsing JSON:', e.message);\n  // Si falla, devolver array vacío\n  ofertas = { ofertas: [] };\n}\n\n// Asegurar que cada oferta tenga todos los campos necesarios (para evitar errores posteriores)\nconst camposRequeridos = ['titulo', 'empresa', 'ubicacion', 'requisitos_tecnicos', 'anos_experiencia', 'responsabilidades', 'herramientas', 'url_oferta', 'resumen'];\nofertas.ofertas = ofertas.ofertas.map(oferta => {\n  const completa = { ...oferta };\n  for (const campo of camposRequeridos) {\n    if (completa[campo] === undefined) {\n      completa[campo] = (campo === 'requisitos_tecnicos' || campo === 'responsabilidades' || campo === 'herramientas') ? [] : null;\n    }\n  }\n  return completa;\n});\n\n// Devolver solo el objeto con el array de ofertas\nreturn ofertas;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        432,
+        -64
+      ],
+      "id": "b97865ff-d1d6-4118-bfef-e5707b7466ea",
+      "name": "Parsear ofertas Gemini"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los items de entrada (cada uno es { oferta, perfil })\nconst items = $input.all();\nconst resultados = [];\n\n// Función para normalizar texto (quita tildes, minúsculas, caracteres especiales)\nfunction normalizar(texto) {\n  return texto\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .toLowerCase()\n    .replace(/[^a-z0-9\\s]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Calcular compatibilidad técnica usando el array de habilidades del perfil\nfunction calcularCompatibilidadTecnica(oferta, perfil) {\n  const habilidadesPerfil = (perfil.habilidades_tecnicas || []).map(h => normalizar(h));\n  const requisitosOferta = (oferta.requisitos_tecnicos || [])\n    .map(r => normalizar(r))\n    .filter(r => r.length > 0);\n\n  if (requisitosOferta.length === 0) {\n    return { puntaje: 50, coincidencias: [], faltantes: [] };\n  }\n\n  let puntaje = 50;\n  const coincidencias = [];\n  const faltantes = [];\n\n  for (const req of requisitosOferta) {\n    let coincide = false;\n\n    // 1. Coincidencia exacta o como subcadena\n    coincide = habilidadesPerfil.some(h => h.includes(req) || req.includes(h));\n\n    // 2. Lógica semántica para casos generales\n    if (!coincide) {\n      // \"analisis de datos\" puede coincidir con \"análisis de datos\", \"data\", \"analista\"\n      if (req.includes('analisis') && req.includes('datos')) {\n        coincide = habilidadesPerfil.some(h => h.includes('analisis') || h.includes('data') || h.includes('analista'));\n      }\n      // \"herramientas de visualizacion\" puede coincidir con \"visualizacion\", \"power bi\", \"matplotlib\", \"seaborn\"\n      else if (req.includes('herramientas') && req.includes('visualizacion')) {\n        coincide = habilidadesPerfil.some(h => h.includes('visualizacion') || h.includes('power bi') || h.includes('matplotlib') || h.includes('seaborn'));\n      }\n      // --- NUEVAS REGLAS SEMÁNTICAS (Corrección de falsos negativos) ---\n      // \"lenguajes de programacion\" conecta con Python, SQL, JavaScript, etc.\n      else if (req.includes('lenguajes') && req.includes('programacion')) {\n        coincide = habilidadesPerfil.some(h => h.includes('python') || h.includes('sql') || h.includes('javascript') || h.includes('java') || h.includes('c#') || h.includes('c++') || h.includes('typescript'));\n      }\n      // \"bases de datos\" conecta con SQL, MySQL, Oracle, PostgreSQL, etc.\n      else if (req.includes('bases') && req.includes('datos')) {\n        coincide = habilidadesPerfil.some(h => h.includes('sql') || h.includes('mysql') || h.includes('oracle') || h.includes('postgresql') || h.includes('mongodb'));\n      }\n      // --- FIN NUEVAS REGLAS ---\n    }\n\n    if (coincide) {\n      puntaje += 15;\n      coincidencias.push(req);\n    } else {\n      puntaje -= 5;\n      faltantes.push(req);\n    }\n  }\n\n  puntaje = Math.min(100, Math.max(0, puntaje));\n  return { puntaje, coincidencias, faltantes };\n}\n\n// Calcular score financiero (con la mejora de incluir \"finanzas\")\nfunction calcularScoreFinanciero(oferta) {\n  let score = 0;\n  const sector = (oferta.sector || '').toLowerCase();\n  const tamano = (oferta.tamano || '').toLowerCase();\n  \n  // Incluir \"finanzas\", \"banco\" y similares\n  if (sector.includes('banca') || sector.includes('financiero') || sector.includes('finanzas') || sector.includes('banco')) {\n    score += 30;\n  } else if (sector.includes('tecnología') || sector.includes('consultoría') || sector.includes('ti')) {\n    score += 20;\n  } else if (sector.includes('telecomunicaciones') || sector.includes('datos')) {\n    score += 10;\n  }\n  \n  if (tamano.includes('1001') || tamano.includes('5000') || tamano.includes('10001')) score += 25;\n  else if (tamano.includes('201') || tamano.includes('500') || tamano.includes('1000')) score += 15;\n  else if (tamano.includes('menos de') || tamano.includes('1 a') || tamano.includes('pequeña')) score += 5;\n  \n  const esEstrategica = score >= 25;\n  return { scoreFinanciero: score, esEstrategica };\n}\n\n// Procesar cada item\nfor (const item of items) {\n  const oferta = item.json.oferta;\n  const perfil = item.json.perfil;\n\n  if (!oferta || !perfil) continue;\n\n  const { puntaje, coincidencias, faltantes } = calcularCompatibilidadTecnica(oferta, perfil);\n  const { scoreFinanciero, esEstrategica } = calcularScoreFinanciero(oferta);\n  const puntajeTotal = Math.min(100, (puntaje * 0.7) + (scoreFinanciero * 0.3));\n\n  const ofertaEnriquecida = {\n    ...oferta,\n    puntaje: puntaje,\n    puntajeTecnico: puntaje,\n    scoreFinanciero,\n    esEstrategica,\n    puntajeTotal,\n    coincidencias,\n    faltantes,\n    requisitos_tecnicos: oferta.requisitos_tecnicos || [],\n    // --- NUEVOS CAMPOS (sin afectar puntaje) ---\n    experiencia_requerida: oferta.experiencia_requerida || null,\n    modalidad: oferta.modalidad || null,\n    idioma_requerido: oferta.idioma_requerido || null,\n    nivel_idioma: oferta.nivel_idioma || null\n    // --- FIN NUEVOS CAMPOS ---\n  };\n\n  resultados.push({\n    oferta: ofertaEnriquecida,\n    perfil: perfil,\n    puntajeTotal: puntajeTotal\n  });\n}\n\n// Si no hay resultados, devolver array vacío\nif (resultados.length === 0) {\n  return [];\n}\n\nreturn resultados;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        928,
+        -64
+      ],
+      "id": "98c88411-e286-4b7d-bcf1-b1a43f26752b",
+      "name": "Calcular Compatibilidad",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los items de entrada\nconst items = $input.all();\nif (items.length === 0) return [];\n\n// --- Función para ordenar viñetas por relevancia ---\nfunction ordenarPorRelevancia(viñetas, palabrasClave) {\n  return [...viñetas].sort((a, b) => {\n    const scoreA = palabrasClave.filter(p => a.toLowerCase().includes(p)).length;\n    const scoreB = palabrasClave.filter(p => b.toLowerCase().includes(p)).length;\n    return scoreB - scoreA;\n  });\n}\n\n// --- Ordenar items por puntajeTotal descendente y tomar los 2 primeros ---\nconst itemsOrdenados = [...items].sort((a, b) => (b.json.puntajeTotal || 0) - (a.json.puntajeTotal || 0));\nconst topItems = itemsOrdenados.slice(0, 2);\n\nconst resultados = [];\n\n// Procesar cada uno de los 2 mejores\nfor (const inputItem of topItems) {\n  const item = inputItem.json;\n  const oferta = item.oferta;\n  const perfil = item.perfil;\n\n  if (!oferta) continue;\n\n  // Datos de la oferta\n  const puntaje = oferta.puntaje ?? oferta.puntajeTecnico ?? 'N/A';\n  const coincidencias = oferta.coincidencias || [];\n  const faltantes = oferta.faltantes || [];\n  const empresa = oferta.empresa || 'la empresa';\n  const tituloPuesto = oferta.titulo || 'el puesto';\n\n  const palabrasClaveOferta = coincidencias.map(p => p.toLowerCase());\n\n  // ============================================================\n  // PERFIL DE FAUSTO\n  // ============================================================\n  const nombre = perfil.nombre || \"Fausto Enrique Soto Euraque\";\n  const tituloProfesional = perfil.titulo || \"Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\";\n  const ubicacion = perfil.ubicacion || \"Tegucigalpa, Francisco Morazán, Honduras\";\n  const email = perfil.email || \"fsotoeu@gmail.com\";\n  const telefono = perfil.telefono || \"+504 3231-0875\";\n  const linkedin = perfil.linkedin || \"https://www.linkedin.com/in/fausto-soto\";\n  const github = perfil.github || \"https://github.com/fsoto21/One-alura-data-science\";\n\n  let resumen = `Ingeniero Industrial con más de 10 años en optimización de procesos y reducción de costos en el sector energético. Actualmente aplico Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con ROI medible. Proyecto destacado: sistema de predicción de churn con ROI 8.10x, recall 96.52% y validación Monte Carlo. Certificado en Oracle Cloud (OCI) y Agentes IA (LangGraph, n8n).`;\n\n  if (coincidencias.length > 0) {\n    resumen += ` Mi experiencia incluye ${coincidencias.join(', ')}, habilidades alineadas con el puesto de ${tituloPuesto} en ${empresa}.`;\n  } else {\n    resumen += ` Busco aplicar mis conocimientos en análisis de datos y machine learning al puesto de ${tituloPuesto} en ${empresa}.`;\n  }\n\n  // Viñetas de experiencia\n  const viñetasFreelance = [\n    \"Desarrollo de proyectos end-to-end de Ciencia de Datos, Modelado Predictivo e IA orientados a ROI.\",\n    \"Modelo de Predicción de Churn para 7,043 clientes con ROI 8.10x validado con Monte Carlo.\",\n    \"Diseño de pipelines ETL con Pandas/NumPy y más de 10 visualizaciones accionables (Power BI, Matplotlib, Seaborn).\",\n    \"Implementación de flujos de IA Generativa (Gemini) y Prompt Engineering para automatización.\",\n    \"Certificación OCI Foundations Associate y formación avanzada en SQL, Oracle, MySQL, PL/SQL.\"\n  ];\n\n  const viñetasENEE = [\n    \"Liderazgo técnico en operación, mantenimiento y optimización de red eléctrica nacional.\",\n    \"Coordinación y supervisión de equipo de 12 personas en mediciones y mantenimiento.\",\n    \"Reducción de costos operativos en 20% e incremento de eficiencia operativa en 15% mediante auditorías electro-energéticas.\",\n    \"Garantía de integridad de datos y reportes entre campo y sistemas de información.\",\n    \"Elaboración de planos eléctricos con AutoCAD para actualización de circuitos.\"\n  ];\n\n  const viñetasPROMEF = [\n    \"Liderazgo en levantamiento y georreferenciación de red eléctrica nacional con GPS.\",\n    \"Consultor del Banco Mundial en proyecto PROMEF: mejora del 20% en eficiencia energética, cumplimiento 100% de hitos.\",\n    \"Transformación de datos de campo en reportes técnicos para decisiones de inversión.\"\n  ];\n\n  const viñetasFreelanceAdaptadas = ordenarPorRelevancia(viñetasFreelance, palabrasClaveOferta);\n  const viñetasENEEAdaptadas = ordenarPorRelevancia(viñetasENEE, palabrasClaveOferta);\n  const viñetasPROMEFAdaptadas = ordenarPorRelevancia(viñetasPROMEF, palabrasClaveOferta);\n\n  const experiencia = `\n**Data Scientist & Business Optimization Consultant (Freelance)** | jul 2023 - actualidad\n${viñetasFreelanceAdaptadas.map(v => `- ${v}`).join('\\n')}\n\n**Ingeniero de Distribución II (ENEE)** | ene 2015 - jun 2023\n${viñetasENEEAdaptadas.map(v => `- ${v}`).join('\\n')}\n\n**Coordinador de Levantamiento de Red / Consultor Banco Mundial (PROMEF)** | sept 2011 - dic 2014\n${viñetasPROMEFAdaptadas.map(v => `- ${v}`).join('\\n')}\n`;\n\n  const certificaciones = perfil.certificaciones \n    ? perfil.certificaciones.map(c => `- ${c}`).join('\\n')\n    : `- Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\n- Inmersión DEV AGENTES DE AI (Alura Latam)\n- IA Generativa - ONE\n- SQL con MySQL Server de Oracle - ONE\n- Programa ONE Tech Foundation G8 - Data Science\n- Estadisticas y Machine Learning G8 - ONE\n- Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\n- Diseño y Programación de Bases de Datos con SQL\n- Fundamentos de Bases de Datos`;\n\n  let habilidadesTecnicas = '';\n  if (perfil.habilidades_tecnicas) {\n    habilidadesTecnicas = perfil.habilidades_tecnicas.join(', ');\n  } else {\n    habilidadesTecnicas = `Python, Pandas, NumPy, Scikit-learn, CatBoost, SHAP, Machine Learning, Modelado predictivo, clasificación, regresión, optimización de umbrales, SQL, MySQL, Oracle Database, PL/SQL, optimización de consultas, ETL, Matplotlib, Seaborn, Power BI, Oracle Cloud Infrastructure (OCI), LangGraph, RAG, FAISS, Gemini API, n8n, Prompt Engineering, IA Generativa, MLOps, Simulaciones Monte Carlo, PSI, circuit breakers, data drift, Git, GitHub, Linux, AutoCAD, ArcGIS, GPS, georreferenciación, Excel`;\n  }\n\n  if (coincidencias.length > 0) {\n    habilidadesTecnicas += `\\n\\n**Habilidades clave para el puesto de ${tituloPuesto} que coinciden con mi perfil:** ${coincidencias.join(', ')}.`;\n  }\n\n  const habilidadesBlandas = perfil.habilidades_blandas \n    ? perfil.habilidades_blandas.join(', ')\n    : 'Liderazgo de equipos, gestión de proyectos, optimización de procesos, mejora continua, análisis financiero, toma de decisiones basada en datos, adaptabilidad, aprendizaje continuo, orientación a resultados, comunicación asertiva, trabajo en equipo, planificación estratégica';\n\n  const idiomas = perfil.idiomas\n    ? perfil.idiomas.map(i => `- **${i.idioma}:** ${i.nivel}`).join('\\n')\n    : `- **Español:** Nativo\\n- **Inglés:** Básico (en mejora continua)`;\n\n  const proyectos = `\n- **ChurnInsight v3.0** (ROI 8.10x, recall 96.52%, validación Monte Carlo): Sistema de Machine Learning para maximizar valor económico de decisiones de retención. Modelo CatBoost con umbral optimizado en 0.06, validado con 10,000 simulaciones Monte Carlo.\n- **Agente IA orquestado con n8n y LangGraph**: Automatización de flujos RAG (FAISS, manuales internos) y búsqueda web (SerpAPI) para envío de cotizaciones por Gmail usando Gemini 2.5 Flash. Demuestra gobernanza y ausencia de alucinaciones.\n- **Portafolio ONE-Alura**: Proyectos de Data Science (Predicción de Churn con XGBoost, EDA con más de 10 visualizaciones, y Challenge Amigo Secreto en JavaScript).\n`;\n\n  const notas = `\n- Más de 600 horas de formación en Data Science, SQL, Python, estadística y cloud.\n- Experiencia en automatización con n8n y Python.\n- Referencias disponibles a solicitud.\n`;\n\n  // ============================================================\n  // CONSTRUCCIÓN DEL CV EN MARKDOWN\n  // ============================================================\n  const cv = `# CV Personalizado para ${tituloPuesto} en ${empresa}\n\n## Datos Personales\n- **Nombre:** ${nombre}\n- **Título profesional:** ${tituloProfesional}\n- **Ubicación:** ${ubicacion}\n- **Email:** ${email}\n- **Teléfono:** ${telefono}\n- **LinkedIn:** ${linkedin}\n- **GitHub:** ${github}\n\n## Resumen Profesional Adaptado\n${resumen}\n\n## Compatibilidad con el puesto\n- **Puntaje de compatibilidad:** ${puntaje}%\n- **Habilidades de la oferta que coinciden con mi perfil:** ${coincidencias.length ? coincidencias.join(', ') : 'ninguna'}\n- **Habilidades de la oferta no encontradas en mi perfil:** ${faltantes.length ? faltantes.join(', ') : 'ninguna'}\n\n## Experiencia Profesional Relevante\n${experiencia}\n\n## Certificaciones Clave\n${certificaciones}\n\n## Habilidades Técnicas\n${habilidadesTecnicas}\n\n## Habilidades Blandas\n${habilidadesBlandas}\n\n## Idiomas\n${idiomas}\n\n## Proyectos Destacados\n${proyectos}\n\n## Notas Adicionales\n${notas}\n\n---\n*CV generado automáticamente por tu headhunter personal.*\n*Contacto: fsotoeu@gmail.com*`;\n\n  resultados.push({\n    ...item,\n    cv: cv,\n    oferta: oferta,\n    perfil: perfil\n  });\n}\n\nreturn resultados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1184,
+        -64
+      ],
+      "id": "f1588e29-0462-43b3-b841-b29c37c18c54",
+      "name": "Generar CV"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener todos los items de entrada (cada uno con oferta, perfil, cv, etc.)\nconst items = $input.all();\nconst resultados = [];\n\n// Función simple para convertir Markdown a HTML (básica)\nfunction markdownToHtml(md) {\n  let html = md\n    .replace(/^# (.*$)/gm, '<h1>$1</h1>')\n    .replace(/^## (.*$)/gm, '<h2>$1</h2>')\n    .replace(/^### (.*$)/gm, '<h3>$1</h3>')\n    .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.*?)\\*/g, '<em>$1</em>');\n  \n  const lines = html.split('\\n');\n  let inList = false;\n  let result = [];\n  \n  for (let line of lines) {\n    if (line.match(/^[\\-\\*]\\s/)) {\n      if (!inList) {\n        result.push('<ul>');\n        inList = true;\n      }\n      result.push('<li>' + line.replace(/^[\\-\\*]\\s/, '') + '</li>');\n    } else {\n      if (inList) {\n        result.push('</ul>');\n        inList = false;\n      }\n      result.push(line);\n    }\n  }\n  \n  if (inList) result.push('</ul>');\n  html = result.join('\\n');\n  html = html.replace(/\\n\\n/g, '</p><p>');\n  html = '<p>' + html.replace(/\\n/g, '<br>') + '</p>';\n  html = html.replace(/<p><\\/p>/g, '');\n  return html;\n}\n\n// Procesar cada item de entrada\nfor (const inputItem of items) {\n  const item = inputItem.json;\n  const oferta = item.oferta;\n  const perfil = item.perfil;\n  const cvMarkdown = item.cv || \"\";\n\n  if (!oferta) {\n    resultados.push({\n      ...item,\n      cartaHtml: \"<p>Error: No se recibió oferta para generar la carta.</p>\"\n    });\n    continue;\n  }\n\n  const cvHtml = markdownToHtml(cvMarkdown);\n\n  const cartaHtml = `\n<p>Estimado equipo de contratación,</p>\n<p>Me dirijo a ustedes para postularme al puesto de <strong>${oferta.titulo}</strong> en <strong>${oferta.empresa}</strong>. Mi experiencia como Ingeniero Industrial y Data Scientist me ha permitido desarrollar soluciones de Machine Learning con impacto financiero medible.</p>\n<p>Destaco mi proyecto <strong>ChurnInsight v3.0</strong>, donde logré un <strong>ROI de 8.10x</strong> (valor anual proyectado de <strong>$1.92M</strong>) al predecir la fuga de clientes, optimizando el umbral de decisión por beneficio económico y alcanzando un recall del 96.52%.</p>\n<p>A continuación, adjunto mi CV adaptado para este puesto:</p>\n<hr />\n${cvHtml}\n<hr />\n<p>Quedo a la espera de poder conversar sobre cómo puedo aportar valor a ${oferta.empresa}.</p>\n<p>Atentamente,<br>Fausto Soto<br>fsotoeu@gmail.com</p>\n`;\n\n  resultados.push({\n    ...item,\n    cartaHtml: cartaHtml,\n    oferta: oferta\n  });\n}\n\nreturn resultados;\n  "
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1408,
+        -64
+      ],
+      "id": "00cab2c6-d23b-4df0-9c21-199202330555",
+      "name": "Carta de Presentación en HTML"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1fzm8ZX5JzTQ0zkyW5wkZU_Rq7xgbtEdJdzxRgoKfgfo",
+          "mode": "id"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Hoja 1",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fzm8ZX5JzTQ0zkyW5wkZU_Rq7xgbtEdJdzxRgoKfgfo/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha Procesado": "={{new Date().toISOString()}}",
+            "Empresa": "={{$json.oferta.empresa}}",
+            "Título Vacante": "={{$json.oferta.titulo}}",
+            "Sector": "={{$json.oferta.sector}}",
+            "Tamaño Empresa": "={{$json.oferta.tamano}}",
+            "Score Match Perfil (%)": "={{$json.oferta.puntajeTecnico}}",
+            "Score Financiero": "={{$json.oferta.scoreFinanciero}}",
+            "¿Es Estratégica?": "={{$json.oferta.esEstrategica}}",
+            "¿CV Generado?": "Sí (texto fijo)",
+            "Link Vacante": "={{$json.oferta.url_oferta}}",
+            "Experiencia Requerida": "={{ $json.oferta.experiencia_requerida }}",
+            "Modalidad": "={{ $json.oferta.modalidad }}",
+            "Idioma Requerido": "={{ $json.oferta.idioma_requerido }}",
+            "Nivel Idioma": "={{ $json.oferta.nivel_idioma }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha Procesado",
+              "displayName": "Fecha Procesado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Empresa",
+              "displayName": "Empresa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Título Vacante",
+              "displayName": "Título Vacante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sector",
+              "displayName": "Sector",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tamaño Empresa",
+              "displayName": "Tamaño Empresa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score Match Perfil (%)",
+              "displayName": "Score Match Perfil (%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score Financiero",
+              "displayName": "Score Financiero",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "¿Es Estratégica?",
+              "displayName": "¿Es Estratégica?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "¿CV Generado?",
+              "displayName": "¿CV Generado?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Link Vacante",
+              "displayName": "Link Vacante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Experiencia Requerida",
+              "displayName": "Experiencia Requerida",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Modalidad",
+              "displayName": "Modalidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Idioma Requerido",
+              "displayName": "Idioma Requerido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Nivel Idioma",
+              "displayName": "Nivel Idioma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1680,
+        -256
+      ],
+      "id": "b1ee3cd8-40e5-46e7-a03a-dbfdeb782c60",
+      "name": "Historial de Vacantes Procesadas",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Ic9538qkI5Kx2kyl",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "sendTo": "euraque2022@gmail.com",
+        "subject": "=CV adaptado para {{ $json.oferta.titulo }} en {{ $json.oferta.empresa }}",
+        "message": "={{ $json.cartaHtml }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.2,
+      "position": [
+        1680,
+        96
+      ],
+      "id": "c1827d74-f384-4a23-8212-95087efd9690",
+      "name": "Send a message",
+      "webhookId": "7fc506ac-8db9-43fc-a839-15234e8a702b",
+      "credentials": {
+        "gmailOAuth2": {
+          "id": "JpUyBbkBfKqInJKI",
+          "name": "Gmail OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            },
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ $json.body }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        224,
+        -64
+      ],
+      "id": "01ce42c3-af39-48a9-9b11-c551394f742a",
+      "name": "HTTP Request",
+      "retryOnFail": true,
+      "waitBetweenTries": 5000
+    },
+    {
+      "parameters": {
+        "jsCode": "// ============================================================\n// NODO CODE COMBINADOR FINAL\n// Contiene el perfil de Fausto incrustado (sin dependencias externas)\n// ============================================================\n\n// --- PERFIL DE FAUSTO (ESTÁTICO) ---\nconst perfil = {\n  text: `Perfil Profesional - Fausto Enrique Soto Euraque\n\nInformación Personal\n- Nombre completo: Fausto Enrique Soto Euraque\n- Título: Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\n- Ubicación: Tegucigalpa, Francisco Morazán, Honduras\n- Email: fsotoeu@gmail.com\n- Teléfono: +504 3231-0875\n- LinkedIn: https://www.linkedin.com/in/fausto-soto\n- GitHub: https://github.com/fsoto21/One-alura-data-science\n\nAcerca de\nIngeniero Industrial con más de 10 años en el sector energético (ENEE), liderando equipos y coordinando proyectos financiados por el Banco Mundial (PROMEF) con reducción de costos operativos del 20%. Actualmente aplica Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con impacto financiero medible.\nProyecto destacado: sistema de predicción de churn para 7,043 clientes con ROI 8.10x, recall 96.52% y validación Monte Carlo.\n\nHabilidades Técnicas\n- Lenguajes y librerías: Python, Pandas, NumPy, Scikit-learn, CatBoost, SHAP\n- Machine Learning: Modelado predictivo, clasificación, regresión, optimización de umbrales\n- Bases de datos: SQL, MySQL, Oracle Database, PL/SQL, optimización de consultas\n- ETL y visualización: ETL, Matplotlib, Herramientas de visualización, Visualización de datos, Seaborn, Power BI\n- Cloud: Oracle Cloud Infrastructure (OCI) - Certified Foundations Associate\n- IA y Automatización: LangGraph, RAG, FAISS, Gemini API, n8n, Prompt Engineering, IA Generativa\n- MLOps y gobernanza: Simulaciones Monte Carlo, PSI, circuit breakers, data drift\n- Herramientas adicionales: Git, GitHub, Linux, AutoCAD, ArcGIS, GPS, georreferenciación, excel, Análisis de datos\n\nHabilidades Blandas\nLiderazgo de equipos, gestión de proyectos, optimización de procesos, mejora continua, análisis financiero, toma de decisiones basada en datos, adaptabilidad, aprendizaje continuo, orientación a resultados, comunicación asertiva, trabajo en equipo, planificación estratégica.\n\nExperiencia Profesional\nData Scientist & Business Optimization Consultant (Freelance) | jul 2023 - actualidad\n- Desarrollo de proyectos end-to-end de Ciencia de Datos, Modelado Predictivo e IA orientados a ROI.\n- Modelo de Predicción de Churn para 7,043 clientes con ROI 8.10x validado con Monte Carlo.\n- Diseño de pipelines ETL con Pandas/NumPy y más de 10 visualizaciones accionables.\n- Implementación de flujos de IA Generativa (Gemini) y Prompt Engineering para automatización.\n- Certificación OCI Foundations Associate y formación avanzada en SQL, Oracle, MySQL, PL/SQL.\n\nIngeniero de Distribución II (ENEE) | ene 2015 - jun 2023\n- Liderazgo técnico en operación, mantenimiento y optimización de red eléctrica nacional.\n- Coordinación y supervisión de equipo de 12 personas en mediciones y mantenimiento.\n- Reducción de costos operativos en 20% e incremento de eficiencia operativa en 15% mediante auditorías electro-energéticas.\n- Garantía de integridad de datos y reportes entre campo y sistemas de información.\n\nCoordinador de Levantamiento de Red / Consultor Banco Mundial (PROMEF) | sept 2011 - dic 2014\n- Liderazgo en levantamiento y georreferenciación de red eléctrica nacional con GPS.\n- Consultor del Banco Mundial en proyecto PROMEF: mejora del 20% en eficiencia energética, cumplimiento 100% de hitos.\n\nEducación\n- Especialización en Ciencia de Datos e Inteligencia Artificial | Oracle Next Education (ONE) - Alura Latam | ene 2025 - ene 2026\n- Especialización en Diseño, Modelado y Programación de Bases de Datos (SQL y PL/SQL) | Oracle Academy & INFOP | sept 2024 - sept 2025\n- Ingeniero Industrial | Universidad Católica de Honduras | ene 2004 - dic 2009\n\nCertificaciones\n- Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\n- Inmersión DEV AGENTES DE AI (Alura Latam)\n- IA Generativa - ONE\n- SQL con MySQL Server de Oracle - ONE\n- Programa ONE Tech Foundation G8 - Data Science\n- Estadisticas y Machine Learning G8 - ONE\n- Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\n- Diseño y Programación de Bases de Datos con SQL\n- Fundamentos de Bases de Datos\n\nProyectos Destacados\n- ChurnInsight v3.0: ROI 8.10x, recall 96.52%, validación Monte Carlo.\n- Agente IA orquestado con n8n y LangGraph (RAG, FAISS, Gemini API).\n- Portafolio ONE-Alura con proyectos de Data Science (Predicción de Churn, EDA, etc.).\n\nIdiomas\n- Español: Nativo\n- Inglés: Básico (en mejora continua)\n\nNotas Adicionales\n- Más de 600 horas de formación en Data Science, SQL, Python, estadística y cloud.\n- Experiencia en automatización con n8n y Python.\n- Referencias disponibles a solicitud.`,\n\n  nombre: \"Fausto Enrique Soto Euraque\",\n  titulo: \"Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\",\n  ubicacion: \"Tegucigalpa, Francisco Morazán, Honduras\",\n  email: \"fsotoeu@gmail.com\",\n  telefono: \"+504 3231-0875\",\n  linkedin: \"https://www.linkedin.com/in/fausto-soto\",\n  github: \"https://github.com/fsoto21/One-alura-data-science\",\n  acerca: \"Ingeniero Industrial con más de 10 años en el sector energético (ENEE), liderando equipos y coordinando proyectos financiados por el Banco Mundial (PROMEF) con reducción de costos operativos del 20%. Actualmente aplica Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con impacto financiero medible.\",\n\n  habilidades_tecnicas: [\n    \"Python\", \"Pandas\", \"NumPy\", \"Scikit-learn\", \"CatBoost\", \"SHAP\",\n    \"Machine Learning\", \"Modelado predictivo\", \"clasificación\", \"regresión\", \"optimización de umbrales\",\n    \"SQL\", \"MySQL\", \"Oracle Database\", \"PL/SQL\", \"optimización de consultas\",\n    \"ETL\", \"Matplotlib\", \"Seaborn\", \"Power BI\",\n    \"Oracle Cloud Infrastructure (OCI)\", \"LangGraph\", \"RAG\", \"FAISS\", \"Gemini API\", \"n8n\", \"Prompt Engineering\", \"IA Generativa\",\n    \"MLOps\", \"Simulaciones Monte Carlo\", \"PSI\", \"circuit breakers\", \"data drift\",\n    \"Git\", \"GitHub\", \"Linux\", \"AutoCAD\", \"ArcGIS\", \"GPS\", \"georreferenciación\", \"Excel\"\n  ],\n\n  habilidades_blandas: [\n    \"Liderazgo de equipos\", \"gestión de proyectos\", \"optimización de procesos\", \"mejora continua\",\n    \"análisis financiero\", \"toma de decisiones basada en datos\", \"adaptabilidad\", \"aprendizaje continuo\",\n    \"orientación a resultados\", \"comunicación asertiva\", \"trabajo en equipo\", \"planificación estratégica\"\n  ],\n\n  anos_experiencia: 10,\n\n  educacion: [\n    \"Especialización en Ciencia de Datos e Inteligencia Artificial | Oracle Next Education (ONE) - Alura Latam | ene 2025 - ene 2026\",\n    \"Especialización en Diseño, Modelado y Programación de Bases de Datos (SQL y PL/SQL) | Oracle Academy & INFOP | sept 2024 - sept 2025\",\n    \"Ingeniero Industrial | Universidad Católica de Honduras | ene 2004 - dic 2009\"\n  ],\n\n  certificaciones: [\n    \"Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\",\n    \"Inmersión DEV AGENTES DE AI (Alura Latam)\",\n    \"IA Generativa - ONE\",\n    \"SQL con MySQL Server de Oracle - ONE\",\n    \"Programa ONE Tech Foundation G8 - Data Science\",\n    \"Estadisticas y Machine Learning G8 - ONE\",\n    \"Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\",\n    \"Diseño y Programación de Bases de Datos con SQL\",\n    \"Fundamentos de Bases de Datos\"\n  ],\n\n  idiomas: [\n    { idioma: \"Español\", nivel: \"Nativo\" },\n    { idioma: \"Inglés\", nivel: \"Básico (en mejora continua)\" }\n  ]\n};\n\n// --- OBTENER OFERTAS DESDE EL INPUT 1 ---\nconst ofertasInput = $input.all()[0]?.json;\n\nif (!ofertasInput) {\n  return [{\n    sinOfertas: true,\n    mensaje: 'No se recibieron ofertas desde el parser.',\n    perfil: perfil\n  }];\n}\n\n// Extraer array de ofertas\nlet ofertas = [];\nif (ofertasInput.ofertas && Array.isArray(ofertasInput.ofertas)) {\n  ofertas = ofertasInput.ofertas;\n} else if (Array.isArray(ofertasInput)) {\n  ofertas = ofertasInput;\n} else if (ofertasInput.titulo) {\n  ofertas = [ofertasInput];\n}\n\nif (ofertas.length === 0) {\n  return [{\n    sinOfertas: true,\n    mensaje: 'No se encontraron ofertas en el correo.',\n    perfil: perfil\n  }];\n}\n\n// Combinar cada oferta con el perfil\nconst combinados = ofertas.map(oferta => ({\n  oferta: oferta,\n  perfil: perfil\n}));\n\nreturn combinados;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        -64
+      ],
+      "id": "db02d020-985a-4347-8a87-91dad92d2919",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/1gDXYTwjW-SBW9i140OCY_mfvyqqry6MC72GTpKWU_Cg/edit?gid=0#gid=0",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Historial_Completo",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gDXYTwjW-SBW9i140OCY_mfvyqqry6MC72GTpKWU_Cg/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha Procesado": "={{ new Date().toISOString() }}",
+            "Empresa": "={{ $json.oferta.empresa }}",
+            "Título Vacante": "={{ $json.oferta.titulo }}",
+            "Sector": "={{ $json.oferta.sector }}",
+            "Tamaño": "={{ $json.oferta.tamano }}",
+            "Score Match Perfil (%)": "={{ $json.oferta.puntajeTecnico }}",
+            "Score Financiero": "={{ $json.oferta.scoreFinanciero }}",
+            "¿Es Estratégica?": "={{ $json.oferta.esEstrategica }}",
+            "Puntaje Total": "={{ $json.puntajeTotal }}",
+            "Coincidencias": "={{ $json.oferta.coincidencias.join(', ') }}",
+            "Faltantes": "={{ $json.oferta.faltantes.join(', ') }}",
+            "Modalidad": "={{ $json.oferta.modalidad }}",
+            "Experiencia Requerida": "={{ $json.oferta.experiencia_requerida }}",
+            "Idioma Requerido": "={{ $json.oferta.idioma_requerido }}",
+            "Nivel Idioma": "={{ $json.oferta.nivel_idioma }}",
+            "Link Vacante": "={{ $json.oferta.url_oferta }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha Procesado",
+              "displayName": "Fecha Procesado",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Empresa",
+              "displayName": "Empresa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Título Vacante",
+              "displayName": "Título Vacante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Sector",
+              "displayName": "Sector",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Tamaño",
+              "displayName": "Tamaño",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score Match Perfil (%)",
+              "displayName": "Score Match Perfil (%)",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score Financiero",
+              "displayName": "Score Financiero",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "¿Es Estratégica?",
+              "displayName": "¿Es Estratégica?",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Puntaje Total",
+              "displayName": "Puntaje Total",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Coincidencias",
+              "displayName": "Coincidencias",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Faltantes",
+              "displayName": "Faltantes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Modalidad",
+              "displayName": "Modalidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Experiencia Requerida",
+              "displayName": "Experiencia Requerida",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Idioma Requerido",
+              "displayName": "Idioma Requerido",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Nivel Idioma",
+              "displayName": "Nivel Idioma",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Link Vacante",
+              "displayName": "Link Vacante",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        960,
+        160
+      ],
+      "id": "6e476d8f-691c-4277-b1bf-fe623756e243",
+      "name": "Append row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "Ic9538qkI5Kx2kyl",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Gmail Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get a message": {
+      "main": [
+        [
+          {
+            "node": "Preparar prompt Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Preparar prompt Gemini": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parsear ofertas Gemini": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calcular Compatibilidad": {
+      "main": [
+        [
+          {
+            "node": "Generar CV",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Append row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generar CV": {
+      "main": [
+        [
+          {
+            "node": "Carta de Presentación en HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Carta de Presentación en HTML": {
+      "main": [
+        [
+          {
+            "node": "Historial de Vacantes Procesadas",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Send a message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Parsear ofertas Gemini",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Calcular Compatibilidad",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "d80ca074-758c-4cc6-b1a5-3181f07e97f4",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "48b95c604a8d4e7b7babcf4b75f89348af933bc33b9909c435188418132c90d2"
+  },
+  "id": "yIHcRdDJivqckKga",
+  "tags": []
+}
