@@ -21,6 +21,8 @@ Diseñé una solución end-to-end de datos e IA para automatizar la priorizació
 
 ![Dashboard](assets/screenshots/03_Dashboard%20_Looker_Studio.png)
 
+![Gaps de Habilidades y A/B Testing](assets/screenshots/04_Gaps_AB_Testing.png)
+
 ---
 
 ## 🎯 El Problema de Negocio
