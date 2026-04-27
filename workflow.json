@@ -1,5 +1,5 @@
 {
-  "name": "My workflow 4",
+  "name": "My workflow",
   "nodes": [
     {
       "parameters": {
@@ -12,7 +12,7 @@
         },
         "simple": false,
         "filters": {
-          "q": "from:jobalerts-noreply@linkedin.com \"Nuevos empleos coinciden con tu alerta\" is:unread"
+          "q": "from:jobalerts-noreply@linkedin.com is:unread"
         },
         "options": {}
       },
@@ -26,7 +26,7 @@
       "name": "Gmail Trigger",
       "credentials": {
         "gmailOAuth2": {
-          "id": "JpUyBbkBfKqInJKI",
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
           "name": "Gmail OAuth2 API"
         }
       }
@@ -49,14 +49,14 @@
       "webhookId": "c04711f6-4341-4a67-bff8-1e8a8936857c",
       "credentials": {
         "gmailOAuth2": {
-          "id": "JpUyBbkBfKqInJKI",
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
           "name": "Gmail OAuth2 API"
         }
       }
     },
     {
       "parameters": {
-        "jsCode": "const item = $input.first().json;\n\n// Extraer remitente\nlet fromString = '';\nif (typeof item.from === 'string') fromString = item.from;\nelse if (item.from?.text) fromString = item.from.text;\nelse if (item.from?.value?.[0]) {\n  const v = item.from.value[0];\n  fromString = `${v.name || ''} <${v.address || ''}>`;\n} else fromString = JSON.stringify(item.from);\n\nconst subject = item.subject || '';\n\n// Usar el contenido HTML del correo para obtener más texto\nlet htmlContent = item.html || '';\nlet bodyText = htmlContent\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nif (bodyText.length < 200) {\n  bodyText = item.text || '';\n}\n\nconst maxChars = 8000;\nif (bodyText.length > maxChars) {\n  bodyText = bodyText.substring(0, maxChars);\n}\n\nbodyText = bodyText.replace(/-{5,}/g, '').replace(/\\n{3,}/g, '\\n\\n');\n\nconst prompt = `Eres un asistente de reclutamiento. Extrae del siguiente correo TODAS las ofertas de trabajo (máximo 5). Para cada oferta, devuelve un JSON con esta estructura EXACTA:\n{\n  \"ofertas\": [\n    {\n      \"titulo\": \"\",\n      \"empresa\": \"\",\n      \"ubicacion\": \"\",\n      \"sector\": \"\",\n      \"tamano\": \"\",\n      \"requisitos_tecnicos\": [],\n      \"anos_experiencia\": null,\n      \"responsabilidades\": [],\n      \"herramientas\": [],\n      \"url_oferta\": null,\n      \"resumen\": \"\",\n      \"experiencia_requerida\": null,\n      \"modalidad\": null,\n      \"idioma_requerido\": null,\n      \"nivel_idioma\": null\n    }\n  ]\n}\n- sector: industria de la empresa (ej. \"Banca\", \"Tecnología\", etc.). Si no se menciona, pon null.\n- tamano: número de empleados (ej. \"De 1.001 a 5.000 empleados\", \"Menos de 100\", etc.). Si no se menciona, pon null.\n- experiencia_requerida: años de experiencia solicitados (número, ej. 3). Si no se menciona, pon null.\n- modalidad: \"remoto\", \"presencial\" o \"híbrido\". Si no se menciona, pon null.\n- idioma_requerido: idioma solicitado (ej. \"inglés\"). Si no se menciona, pon null.\n- nivel_idioma: nivel requerido (ej. \"básico\", \"intermedio\", \"avanzado\", \"nativo\"). Si no se menciona, pon null.\nSi no hay ofertas, devuelve {\"ofertas\": []}. No añadas texto adicional fuera del JSON.\n\n**IMPORTANTE**: Si el correo NO incluye una lista explícita de requisitos técnicos, INFIERE hasta 5 habilidades técnicas probables para el puesto basándote en su título y sector. USA ESTAS HABILIDADES INFERIDAS ÚNICAMENTE para completar el campo 'requisitos_tecnicos' del JSON interno y así mejorar el cálculo de compatibilidad. NO INCLUYAS estas habilidades inferidas en el campo 'resumen' ni en ningún otro lugar que pueda ser interpretado como un requisito oficial de la oferta.\n\nCorreo:\nDe: ${fromString}\nAsunto: ${subject}\nCuerpo: ${bodyText}`;\n\nconst requestBody = {\n  model: \"llama-3.3-70b-versatile\",\n  messages: [\n    {\n      role: \"user\",\n      content: prompt\n    }\n  ],\n  temperature: 0,\n  max_tokens: 4000\n};\n\nreturn { body: JSON.stringify(requestBody) };\n"
+        "jsCode": "const item = $input.first().json;\n\n// Extraer remitente\nlet fromString = '';\nif (typeof item.from === 'string') fromString = item.from;\nelse if (item.from?.text) fromString = item.from.text;\nelse if (item.from?.value?.[0]) {\n  const v = item.from.value[0];\n  fromString = `${v.name || ''} <${v.address || ''}>`;\n} else fromString = JSON.stringify(item.from);\n\nconst subject = item.subject || '';\n\n// Usar el contenido HTML del correo para obtener más texto\nlet htmlContent = item.html || '';\nlet bodyText = htmlContent\n  .replace(/<style[^>]*>[\\s\\S]*?<\\/style>/gi, '')\n  .replace(/<script[^>]*>[\\s\\S]*?<\\/script>/gi, '')\n  .replace(/<[^>]+>/g, ' ')\n  .replace(/\\s+/g, ' ')\n  .trim();\n\nif (bodyText.length < 200) {\n  bodyText = item.text || '';\n}\n\n// =============== MEJORA 1: Aumento de límite de caracteres ===============\nconst maxChars = 12000; // antes 8000\nif (bodyText.length > maxChars) {\n  bodyText = bodyText.substring(0, maxChars);\n}\n\nbodyText = bodyText.replace(/-{5,}/g, '').replace(/\\n{3,}/g, '\\n\\n');\n\n// =============== MEJORA 2: Prompt mejorado (sin máximo fijo) ===============\nconst prompt = `Eres un asistente de reclutamiento. Extrae del siguiente correo TODAS las ofertas de trabajo que aparecen listadas en el cuerpo. No omitas ninguna; si hay más de 5, inclúyelas todas en el array de salida. Para cada oferta, devuelve un JSON con esta estructura EXACTA:\n{\n  \"ofertas\": [\n    {\n      \"titulo\": \"\",\n      \"empresa\": \"\",\n      \"ubicacion\": \"\",\n      \"sector\": \"\",\n      \"tamano\": \"\",\n      \"requisitos_tecnicos\": [],\n      \"anos_experiencia\": null,\n      \"responsabilidades\": [],\n      \"herramientas\": [],\n      \"url_oferta\": null,\n      \"resumen\": \"\",\n      \"experiencia_requerida\": null,\n      \"modalidad\": null,\n      \"idioma_requerido\": null,\n      \"nivel_idioma\": null\n    }\n  ]\n}\n- sector: industria de la empresa (ej. \"Banca\", \"Tecnología\", etc.). Si no se menciona, pon null.\n- tamano: número de empleados (ej. \"De 1.001 a 5.000 empleados\", \"Menos de 100\", etc.). Si no se menciona, pon null.\n- experiencia_requerida: años de experiencia solicitados (número, ej. 3). Si no se menciona, pon null.\n- modalidad: \"remoto\", \"presencial\" o \"híbrido\". Si no se menciona, pon null.\n- idioma_requerido: idioma solicitado (ej. \"inglés\"). Si no se menciona, pon null.\n- nivel_idioma: nivel requerido (ej. \"básico\", \"intermedio\", \"avanzado\", \"nativo\"). Si no se menciona, pon null.\nSi no hay ofertas, devuelve {\"ofertas\": []}. No añadas texto adicional fuera del JSON.\n\n**IMPORTANTE**: Si el correo NO incluye una lista explícita de requisitos técnicos, INFIERE hasta 5 habilidades técnicas probables para el puesto basándote en su título y sector. USA ESTAS HABILIDADES INFERIDAS ÚNICAMENTE para completar el campo 'requisitos_tecnicos' del JSON interno y así mejorar el cálculo de compatibilidad. NO INCLUYAS estas habilidades inferidas en el campo 'resumen' ni en ningún otro lugar que pueda ser interpretado como un requisito oficial de la oferta.\n\nCorreo:\nDe: ${fromString}\nAsunto: ${subject}\nCuerpo: ${bodyText}`;\n\n// =============== MEJORA 3: Aumento de tokens de salida ===============\nconst requestBody = {\n  model: \"llama-3.3-70b-versatile\",\n  messages: [\n    {\n      role: \"user\",\n      content: prompt\n    }\n  ],\n  temperature: 0,\n  max_tokens: 8000 // antes 4000\n};\n\nreturn { body: JSON.stringify(requestBody) };"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -82,7 +82,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Obtener todos los items de entrada (cada uno es { oferta, perfil })\nconst items = $input.all();\nconst resultados = [];\n\n// Función para normalizar texto (quita tildes, minúsculas, caracteres especiales)\nfunction normalizar(texto) {\n  return texto\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .toLowerCase()\n    .replace(/[^a-z0-9\\s]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Calcular compatibilidad técnica usando el array de habilidades del perfil\nfunction calcularCompatibilidadTecnica(oferta, perfil) {\n  const habilidadesPerfil = (perfil.habilidades_tecnicas || []).map(h => normalizar(h));\n  const requisitosOferta = (oferta.requisitos_tecnicos || [])\n    .map(r => normalizar(r))\n    .filter(r => r.length > 0);\n\n  if (requisitosOferta.length === 0) {\n    return { puntaje: 50, coincidencias: [], faltantes: [] };\n  }\n\n  let puntaje = 50;\n  const coincidencias = [];\n  const faltantes = [];\n\n  for (const req of requisitosOferta) {\n    let coincide = false;\n\n    // 1. Coincidencia exacta o como subcadena\n    coincide = habilidadesPerfil.some(h => h.includes(req) || req.includes(h));\n\n    // 2. Lógica semántica para casos generales\n    if (!coincide) {\n      // \"analisis de datos\" puede coincidir con \"análisis de datos\", \"data\", \"analista\"\n      if (req.includes('analisis') && req.includes('datos')) {\n        coincide = habilidadesPerfil.some(h => h.includes('analisis') || h.includes('data') || h.includes('analista'));\n      }\n      // \"herramientas de visualizacion\" puede coincidir con \"visualizacion\", \"power bi\", \"matplotlib\", \"seaborn\"\n      else if (req.includes('herramientas') && req.includes('visualizacion')) {\n        coincide = habilidadesPerfil.some(h => h.includes('visualizacion') || h.includes('power bi') || h.includes('matplotlib') || h.includes('seaborn'));\n      }\n      // --- NUEVAS REGLAS SEMÁNTICAS (Corrección de falsos negativos) ---\n      // \"lenguajes de programacion\" conecta con Python, SQL, JavaScript, etc.\n      else if (req.includes('lenguajes') && req.includes('programacion')) {\n        coincide = habilidadesPerfil.some(h => h.includes('python') || h.includes('sql') || h.includes('javascript') || h.includes('java') || h.includes('c#') || h.includes('c++') || h.includes('typescript'));\n      }\n      // \"bases de datos\" conecta con SQL, MySQL, Oracle, PostgreSQL, etc.\n      else if (req.includes('bases') && req.includes('datos')) {\n        coincide = habilidadesPerfil.some(h => h.includes('sql') || h.includes('mysql') || h.includes('oracle') || h.includes('postgresql') || h.includes('mongodb'));\n      }\n      // --- FIN NUEVAS REGLAS ---\n    }\n\n    if (coincide) {\n      puntaje += 15;\n      coincidencias.push(req);\n    } else {\n      puntaje -= 5;\n      faltantes.push(req);\n    }\n  }\n\n  puntaje = Math.min(100, Math.max(0, puntaje));\n  return { puntaje, coincidencias, faltantes };\n}\n\n// Calcular score financiero (con la mejora de incluir \"finanzas\")\nfunction calcularScoreFinanciero(oferta) {\n  let score = 0;\n  const sector = (oferta.sector || '').toLowerCase();\n  const tamano = (oferta.tamano || '').toLowerCase();\n  \n  // Incluir \"finanzas\", \"banco\" y similares\n  if (sector.includes('banca') || sector.includes('financiero') || sector.includes('finanzas') || sector.includes('banco')) {\n    score += 30;\n  } else if (sector.includes('tecnología') || sector.includes('consultoría') || sector.includes('ti')) {\n    score += 20;\n  } else if (sector.includes('telecomunicaciones') || sector.includes('datos')) {\n    score += 10;\n  }\n  \n  if (tamano.includes('1001') || tamano.includes('5000') || tamano.includes('10001')) score += 25;\n  else if (tamano.includes('201') || tamano.includes('500') || tamano.includes('1000')) score += 15;\n  else if (tamano.includes('menos de') || tamano.includes('1 a') || tamano.includes('pequeña')) score += 5;\n  \n  const esEstrategica = score >= 25;\n  return { scoreFinanciero: score, esEstrategica };\n}\n\n// Procesar cada item\nfor (const item of items) {\n  const oferta = item.json.oferta;\n  const perfil = item.json.perfil;\n\n  if (!oferta || !perfil) continue;\n\n  const { puntaje, coincidencias, faltantes } = calcularCompatibilidadTecnica(oferta, perfil);\n  const { scoreFinanciero, esEstrategica } = calcularScoreFinanciero(oferta);\n  const puntajeTotal = Math.min(100, (puntaje * 0.7) + (scoreFinanciero * 0.3));\n\n  const ofertaEnriquecida = {\n    ...oferta,\n    puntaje: puntaje,\n    puntajeTecnico: puntaje,\n    scoreFinanciero,\n    esEstrategica,\n    puntajeTotal,\n    coincidencias,\n    faltantes,\n    requisitos_tecnicos: oferta.requisitos_tecnicos || [],\n    // --- NUEVOS CAMPOS (sin afectar puntaje) ---\n    experiencia_requerida: oferta.experiencia_requerida || null,\n    modalidad: oferta.modalidad || null,\n    idioma_requerido: oferta.idioma_requerido || null,\n    nivel_idioma: oferta.nivel_idioma || null\n    // --- FIN NUEVOS CAMPOS ---\n  };\n\n  resultados.push({\n    oferta: ofertaEnriquecida,\n    perfil: perfil,\n    puntajeTotal: puntajeTotal\n  });\n}\n\n// Si no hay resultados, devolver array vacío\nif (resultados.length === 0) {\n  return [];\n}\n\nreturn resultados;\n"
+        "jsCode": "// Obtener todos los items de entrada (cada uno es { oferta, perfil })\nconst items = $input.all();\nconst resultados = [];\n\n// Función para normalizar texto (quita tildes, minúsculas, caracteres especiales)\nfunction normalizar(texto) {\n  return texto\n    .normalize(\"NFD\")\n    .replace(/[\\u0300-\\u036f]/g, \"\")\n    .toLowerCase()\n    .replace(/[^a-z0-9\\s]/g, ' ')\n    .replace(/\\s+/g, ' ')\n    .trim();\n}\n\n// Calcular compatibilidad técnica usando el array de habilidades del perfil\nfunction calcularCompatibilidadTecnica(oferta, perfil) {\n  const habilidadesPerfil = (perfil.habilidades_tecnicas || []).map(h => normalizar(h));\n  const habilidadesBlandasPerfil = (perfil.habilidades_blandas || []).map(h => normalizar(h));\n  const requisitosOferta = (oferta.requisitos_tecnicos || [])\n    .map(r => normalizar(r))\n    .filter(r => r.length > 0);\n\n  if (requisitosOferta.length === 0) {\n    return { puntaje: 50, coincidencias: [], faltantes: [] };\n  }\n\n  let puntaje = 50;\n  const coincidencias = [];\n  const faltantes = [];\n\n  for (const req of requisitosOferta) {\n    let coincide = false;\n\n    // 1. Coincidencia exacta o como subcadena (con protección anti-falsos positivos)\n    if (req.length <= 2) {\n      coincide = habilidadesPerfil.some(h => h === req);\n    } else {\n      coincide = habilidadesPerfil.some(h => h.includes(req) || req.includes(h));\n    }\n\n    // 2. Lógica semántica para casos generales\n    if (!coincide) {\n      \n      // --- REGLA MEJORADA: \"data analysis\" (inglés) o \"análisis de datos\" (español) ---\n      if ( (req.includes('data') && req.includes('analysis')) || (req.includes('analisis') && req.includes('datos')) ) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('analisis') || h.includes('data') || h.includes('analista') || h.includes('sql') || h.includes('power bi')\n        );\n      }\n      // --- REGLA MEJORADA: \"data visualization\" (inglés) o \"visualizacion\" (español) ---\n      else if ( (req.includes('data') && req.includes('visualization')) || req.includes('visualizacion') ) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('visualizacion') || h.includes('power bi') || h.includes('matplotlib') || h.includes('seaborn')\n        );\n      }\n      // \"lenguajes de programacion\" conecta con Python, SQL, JavaScript, etc.\n      else if (req.includes('lenguajes') && req.includes('programacion')) {\n        coincide = habilidadesPerfil.some(h => h.includes('python') || h.includes('sql') || h.includes('javascript') || h.includes('java') || h.includes('c#') || h.includes('c++') || h.includes('typescript'));\n      }\n      // \"base de datos\" o \"bases de datos\" conecta con SQL, MySQL, Oracle, etc.\n      else if ( (req.includes('base') || req.includes('bases')) && req.includes('datos') ) {\n        coincide = habilidadesPerfil.some(h => h.includes('sql') || h.includes('mysql') || h.includes('oracle') || h.includes('postgresql') || h.includes('mongodb'));\n      }\n      \n      // --- NUEVAS REGLAS SEMÁNTICAS (Respaldadas y Éticas) ---\n      \n      // 1. \"data science\" como concepto general\n      else if (req.includes('data') && req.includes('science')) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('python') || h.includes('machine learning') || h.includes('sql') || \n          h.includes('pandas') || h.includes('scikit-learn') || h.includes('visualizacion')\n        );\n      }\n      // 2. \"estadisticas\"\n      else if (req.includes('estadistica')) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('estadisticas') || h.includes('monte carlo') || h.includes('analisis financiero') ||\n          h.includes('machine learning')\n        );\n      }\n      // 3. \"modelos lineales\": coincide con regresión, machine learning\n      else if (req.includes('modelo') && (req.includes('lineal') || req.includes('lineales'))) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('regresion') || h.includes('machine learning') || h.includes('optimizacion de umbrales')\n        );\n      }\n      // 4. \"data analytics\"\n      else if (req.includes('data') && req.includes('analytics')) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('analisis de datos') || h.includes('visualizacion') || h.includes('sql') || h.includes('power bi')\n        );\n      }\n      // 5. \"inteligencia de negocios\"\n      else if (req.includes('inteligencia') && req.includes('negocios')) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('power bi') || h.includes('visualizacion') || h.includes('sql') || h.includes('analisis')\n        );\n      }\n      // 6. \"cloud computing\"\n      else if (req.includes('cloud')) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('oci') || h.includes('oracle cloud') || h.includes('infrastructure')\n        );\n      }\n      // 7. \"inteligencia artificial\"\n      else if (req.includes('inteligencia') && req.includes('artificial')) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('machine learning') || h.includes('ia generativa') || \n          h.includes('langgraph') || h.includes('rag') || h.includes('prompt engineering')\n        );\n      }\n      // 8. \"aprendizaje automatico\"\n      else if (req.includes('aprendizaje') && req.includes('automatico')) {\n        coincide = habilidadesPerfil.some(h => h.includes('machine learning'));\n      }\n      // 9. \"comunicacion efectiva\" como subcadena\n      else if (req.includes('comunicacion efectiva')) {\n        coincide = habilidadesBlandasPerfil.some(h => h.includes('comunicacion efectiva'));\n      }\n      // 10. \"liderazgo\" conecta con \"Liderazgo de equipos\"\n      else if (req.includes('liderazgo')) {\n        coincide = habilidadesBlandasPerfil.some(h => h.includes('liderazgo'));\n      }\n      // 11. \"investigación y análisis\" conecta con \"análisis de datos\" (NUEVA REGLA ÉTICA)\n      else if (req.includes('investigacion') && req.includes('analisis')) {\n        coincide = habilidadesPerfil.some(h => h.includes('analisis de datos') || h.includes('analisis'));\n      }\n      // 12. \"desarrollo de estrategias\" conecta con \"planificación estratégica\" (NUEVA REGLA ÉTICA)\n      else if (req.includes('desarrollo') && req.includes('estrategias')) {\n        coincide = habilidadesBlandasPerfil.some(h => h.includes('planificacion estrategica'));\n      }\n      // 13. \"gestión de proyectos\" conecta con la habilidad blanda\n      else if (req.includes('gestion') && req.includes('proyectos')) {\n        coincide = habilidadesBlandasPerfil.some(h => \n          h.includes('gestion de proyectos') || h.includes('planificacion estrategica')\n        );\n      }\n      // 14. \"desarrollo ágil\" o \"herramientas ágiles\" conecta con Metodologías Ágiles\n      else if ((req.includes('desarrollo') && req.includes('agil')) || \n               (req.includes('herramientas') && req.includes('agil'))) {\n        coincide = habilidadesPerfil.some(h => \n          h.includes('metodologias agiles') || h.includes('scrum') || h.includes('kanban')\n        );\n      }\n      // --- FIN NUEVAS REGLAS ---\n    }\n\n    if (coincide) {\n      puntaje += 15;\n      coincidencias.push(req);\n    } else {\n      puntaje -= 5;\n      faltantes.push(req);\n    }\n  }\n\n  puntaje = Math.min(100, Math.max(0, puntaje));\n  return { puntaje, coincidencias, faltantes };\n}\n\n// Calcular score financiero (con la mejora de incluir \"finanzas\")\nfunction calcularScoreFinanciero(oferta) {\n  let score = 0;\n  const sector = (oferta.sector || '').toLowerCase();\n  const tamano = (oferta.tamano || '').toLowerCase();\n  \n  // Incluir \"finanzas\", \"banco\" y similares\n  if (sector.includes('banca') || sector.includes('financiero') || sector.includes('finanzas') || sector.includes('banco')) {\n    score += 30;\n  } else if (sector.includes('tecnología') || sector.includes('consultoría') || sector.includes('ti')) {\n    score += 20;\n  } else if (sector.includes('telecomunicaciones') || sector.includes('datos')) {\n    score += 10;\n  }\n  \n  if (tamano.includes('1001') || tamano.includes('5000') || tamano.includes('10001')) score += 25;\n  else if (tamano.includes('201') || tamano.includes('500') || tamano.includes('1000')) score += 15;\n  else if (tamano.includes('menos de') || tamano.includes('1 a') || tamano.includes('pequeña')) score += 5;\n  \n  const esEstrategica = score >= 25;\n  return { scoreFinanciero: score, esEstrategica };\n}\n\n// Procesar cada item\nfor (const item of items) {\n  const oferta = item.json.oferta;\n  const perfil = item.json.perfil;\n\n  if (!oferta || !perfil) continue;\n\n  // --- MEJORA: Normalizar modalidad y asignar \"No disponible\" si viene vacío ---\n  if (oferta.modalidad) {\n    oferta.modalidad = oferta.modalidad\n      .toLowerCase()\n      .normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\")\n      .replace(/^\\w/, (c) => c.toUpperCase());\n  } else {\n    oferta.modalidad = \"No disponible\";\n  }\n  // --- FIN MEJORA ---\n\n  const { puntaje, coincidencias, faltantes } = calcularCompatibilidadTecnica(oferta, perfil);\n  const { scoreFinanciero, esEstrategica } = calcularScoreFinanciero(oferta);\n  const puntajeTotal = Math.min(100, (puntaje * 0.7) + (scoreFinanciero * 0.3));\n\n  // --- MEJORA EXTENDIDA: Reemplazar nulls y vacíos en todos los campos relevantes ---\n  const ofertaEnriquecida = {\n    ...oferta,\n    puntaje: puntaje,\n    puntajeTecnico: puntaje,\n    scoreFinanciero,\n    esEstrategica,\n    puntajeTotal,\n    coincidencias: coincidencias.length > 0 ? coincidencias : [\"Sin coincidencias\"],\n    faltantes: faltantes.length > 0 ? faltantes : [\"Ninguno\"],\n    requisitos_tecnicos: oferta.requisitos_tecnicos || [],\n    \n    // Campos de texto: si son null, undefined o string vacío -> \"No especificado\"\n    experiencia_requerida: oferta.experiencia_requerida || \"No especificado\",\n    modalidad: oferta.modalidad || \"No disponible\",\n    idioma_requerido: oferta.idioma_requerido || \"No especificado\",\n    nivel_idioma: oferta.nivel_idioma || \"No especificado\",\n    tamano: oferta.tamano || \"No especificado\",\n    anos_experiencia: oferta.anos_experiencia || \"No especificado\",\n    url_oferta: oferta.url_oferta || \"No especificado\",\n    \n    // Arrays: si no existen o están vacíos -> [\"No especificado\"]\n    responsabilidades: (oferta.responsabilidades && oferta.responsabilidades.length > 0) ? oferta.responsabilidades : [\"No especificado\"],\n    herramientas: (oferta.herramientas && oferta.herramientas.length > 0) ? oferta.herramientas : [\"No especificado\"]\n  };\n  // --- FIN MEJORA EXTENDIDA ---\n\n  resultados.push({\n    oferta: ofertaEnriquecida,\n    perfil: perfil,\n    puntajeTotal: puntajeTotal\n  });\n}\n\n// Si no hay resultados, devolver array vacío\nif (resultados.length === 0) {\n  return [];\n}\n\nreturn resultados;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -109,7 +109,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Obtener todos los items de entrada (cada uno con oferta, perfil, cv, etc.)\nconst items = $input.all();\nconst resultados = [];\n\n// Función simple para convertir Markdown a HTML (básica)\nfunction markdownToHtml(md) {\n  let html = md\n    .replace(/^# (.*$)/gm, '<h1>$1</h1>')\n    .replace(/^## (.*$)/gm, '<h2>$1</h2>')\n    .replace(/^### (.*$)/gm, '<h3>$1</h3>')\n    .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.*?)\\*/g, '<em>$1</em>');\n  \n  const lines = html.split('\\n');\n  let inList = false;\n  let result = [];\n  \n  for (let line of lines) {\n    if (line.match(/^[\\-\\*]\\s/)) {\n      if (!inList) {\n        result.push('<ul>');\n        inList = true;\n      }\n      result.push('<li>' + line.replace(/^[\\-\\*]\\s/, '') + '</li>');\n    } else {\n      if (inList) {\n        result.push('</ul>');\n        inList = false;\n      }\n      result.push(line);\n    }\n  }\n  \n  if (inList) result.push('</ul>');\n  html = result.join('\\n');\n  html = html.replace(/\\n\\n/g, '</p><p>');\n  html = '<p>' + html.replace(/\\n/g, '<br>') + '</p>';\n  html = html.replace(/<p><\\/p>/g, '');\n  return html;\n}\n\n// Procesar cada item de entrada\nfor (const inputItem of items) {\n  const item = inputItem.json;\n  const oferta = item.oferta;\n  const perfil = item.perfil;\n  const cvMarkdown = item.cv || \"\";\n\n  if (!oferta) {\n    resultados.push({\n      ...item,\n      cartaHtml: \"<p>Error: No se recibió oferta para generar la carta.</p>\"\n    });\n    continue;\n  }\n\n  const cvHtml = markdownToHtml(cvMarkdown);\n\n  const cartaHtml = `\n<p>Estimado equipo de contratación,</p>\n<p>Me dirijo a ustedes para postularme al puesto de <strong>${oferta.titulo}</strong> en <strong>${oferta.empresa}</strong>. Mi experiencia como Ingeniero Industrial y Data Scientist me ha permitido desarrollar soluciones de Machine Learning con impacto financiero medible.</p>\n<p>Destaco mi proyecto <strong>ChurnInsight v3.0</strong>, donde logré un <strong>ROI de 8.10x</strong> (valor anual proyectado de <strong>$1.92M</strong>) al predecir la fuga de clientes, optimizando el umbral de decisión por beneficio económico y alcanzando un recall del 96.52%.</p>\n<p>A continuación, adjunto mi CV adaptado para este puesto:</p>\n<hr />\n${cvHtml}\n<hr />\n<p>Quedo a la espera de poder conversar sobre cómo puedo aportar valor a ${oferta.empresa}.</p>\n<p>Atentamente,<br>Fausto Soto<br>fsotoeu@gmail.com</p>\n`;\n\n  resultados.push({\n    ...item,\n    cartaHtml: cartaHtml,\n    oferta: oferta\n  });\n}\n\nreturn resultados;\n  "
+        "jsCode": "// Obtener todos los items de entrada (cada uno con oferta, perfil, cv, etc.)\nconst items = $input.all();\nconst resultados = [];\n\n// Función simple para convertir Markdown a HTML (básica)\nfunction markdownToHtml(md) {\n  let html = md\n    .replace(/^# (.*$)/gm, '<h1>$1</h1>')\n    .replace(/^## (.*$)/gm, '<h2>$1</h2>')\n    .replace(/^### (.*$)/gm, '<h3>$1</h3>')\n    .replace(/\\*\\*(.*?)\\*\\*/g, '<strong>$1</strong>')\n    .replace(/\\*(.*?)\\*/g, '<em>$1</em>');\n  \n  const lines = html.split('\\n');\n  let inList = false;\n  let result = [];\n  \n  for (let line of lines) {\n    if (line.match(/^[\\-\\*]\\s/)) {\n      if (!inList) {\n        result.push('<ul>');\n        inList = true;\n      }\n      result.push('<li>' + line.replace(/^[\\-\\*]\\s/, '') + '</li>');\n    } else {\n      if (inList) {\n        result.push('</ul>');\n        inList = false;\n      }\n      result.push(line);\n    }\n  }\n  \n  if (inList) result.push('</ul>');\n  html = result.join('\\n');\n  html = html.replace(/\\n\\n/g, '</p><p>');\n  html = '<p>' + html.replace(/\\n/g, '<br>') + '</p>';\n  html = html.replace(/<p><\\/p>/g, '');\n  return html;\n}\n\n// Procesar cada item de entrada\nfor (const inputItem of items) {\n  const item = inputItem.json;\n  const oferta = item.oferta;\n  const perfil = item.perfil;\n  const cvMarkdown = item.cv || \"\";\n\n  if (!oferta) {\n    resultados.push({\n      ...item,\n      cartaHtml: \"<p>Error: No se recibió oferta para generar la carta.</p>\"\n    });\n    continue;\n  }\n\n  // --- NUEVA LÓGICA: AVISO DE UBICACIÓN ---\n  let avisoUbicacion = \"\";\n  const ubicacionOferta = oferta.ubicacion || \"\";\n  const modalidadOferta = oferta.modalidad || \"\";\n\n  // Detectar si es presencial/híbrido fuera de Honduras\n  // Consideramos \"remoto\" como seguro, el resto se evalúa\n  if (modalidadOferta.toLowerCase() !== \"remoto\" && \n      ubicacionOferta.trim() !== \"\" &&\n      !ubicacionOferta.toLowerCase().includes(\"honduras\") &&\n      !ubicacionOferta.toLowerCase().includes(\"tegucigalpa\") &&\n      !ubicacionOferta.toLowerCase().includes(\"distrito central\")) {\n    \n    avisoUbicacion = `\n        <div style=\"background-color: #fff3cd; border: 1px solid #ffeeba; padding: 15px; margin-bottom: 20px; border-radius: 5px;\">\n            <strong>⚠️ AVISO IMPORTANTE:</strong> Esta oferta es <strong>${modalidadOferta || 'presencial/híbrida'}</strong> y su ubicación es <strong>${ubicacionOferta}</strong>. \n            Verifica si es viable para ti antes de postularte.\n        </div>\n    `;\n  }\n  // --- FIN NUEVA LÓGICA ---\n\n  const cvHtml = markdownToHtml(cvMarkdown);\n\n  const cartaHtml = `\n${avisoUbicacion}\n<p>Estimado equipo de contratación,</p>\n<p>Me dirijo a ustedes para postularme al puesto de <strong>${oferta.titulo}</strong> en <strong>${oferta.empresa}</strong>. Mi experiencia como Ingeniero Industrial y Data Scientist me ha permitido desarrollar soluciones de Machine Learning con impacto financiero medible.</p>\n<p>Destaco mi proyecto <strong>ChurnInsight v3.0</strong>, donde logré un <strong>ROI de 8.10x</strong> (valor anual proyectado de <strong>$1.92M</strong>) al predecir la fuga de clientes, optimizando el umbral de decisión por beneficio económico y alcanzando un recall del 96.52%.</p>\n<p>A continuación, adjunto mi CV adaptado para este puesto:</p>\n<hr />\n${cvHtml}\n<hr />\n<p>Quedo a la espera de poder conversar sobre cómo puedo aportar valor a ${oferta.empresa}.</p>\n<p>Atentamente,<br>Fausto Soto<br>fsotoeu@gmail.com</p>\n`;\n\n  resultados.push({\n    ...item,\n    cartaHtml: cartaHtml,\n    oferta: oferta\n  });\n}\n\nreturn resultados;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -125,7 +125,7 @@
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "1fzm8ZX5JzTQ0zkyW5wkZU_Rq7xgbtEdJdzxRgoKfgfo",
+          "value": "YOUR_VACANTES_SHEET_ID",
           "mode": "id"
         },
         "sheetName": {
@@ -133,12 +133,12 @@
           "value": "gid=0",
           "mode": "list",
           "cachedResultName": "Hoja 1",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1fzm8ZX5JzTQ0zkyW5wkZU_Rq7xgbtEdJdzxRgoKfgfo/edit#gid=0"
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_VACANTES_SHEET_ID/edit"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "Fecha Procesado": "={{new Date().toISOString()}}",
+            "Fecha Procesado": "={{ new Date(new Date().getTime() - 6 * 60 * 60 * 1000).toISOString().replace('Z', '-06:00') }}",
             "Empresa": "={{$json.oferta.empresa}}",
             "Título Vacante": "={{$json.oferta.titulo}}",
             "Sector": "={{$json.oferta.sector}}",
@@ -181,6 +181,16 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true
+            },
+            {
+              "id": "Ubicación",
+              "displayName": "Ubicación",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": true
             },
             {
               "id": "Sector",
@@ -301,14 +311,14 @@
       "name": "Historial de Vacantes Procesadas",
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "Ic9538qkI5Kx2kyl",
+          "id": "YOUR_GSHEETS_CREDENTIAL_ID",
           "name": "Google Sheets OAuth2 API"
         }
       }
     },
     {
       "parameters": {
-        "sendTo": "euraque2022@gmail.com",
+        "sendTo": "YOUR_EMAIL@gmail.com",
         "subject": "=CV adaptado para {{ $json.oferta.titulo }} en {{ $json.oferta.empresa }}",
         "message": "={{ $json.cartaHtml }}",
         "options": {}
@@ -324,7 +334,7 @@
       "webhookId": "7fc506ac-8db9-43fc-a839-15234e8a702b",
       "credentials": {
         "gmailOAuth2": {
-          "id": "JpUyBbkBfKqInJKI",
+          "id": "YOUR_GMAIL_CREDENTIAL_ID",
           "name": "Gmail OAuth2 API"
         }
       }
@@ -364,7 +374,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// ============================================================\n// NODO CODE COMBINADOR FINAL\n// Contiene el perfil de Fausto incrustado (sin dependencias externas)\n// ============================================================\n\n// --- PERFIL DE FAUSTO (ESTÁTICO) ---\nconst perfil = {\n  text: `Perfil Profesional - Fausto Enrique Soto Euraque\n\nInformación Personal\n- Nombre completo: Fausto Enrique Soto Euraque\n- Título: Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\n- Ubicación: Tegucigalpa, Francisco Morazán, Honduras\n- Email: fsotoeu@gmail.com\n- Teléfono: +504 3231-0875\n- LinkedIn: https://www.linkedin.com/in/fausto-soto\n- GitHub: https://github.com/fsoto21/One-alura-data-science\n\nAcerca de\nIngeniero Industrial con más de 10 años en el sector energético (ENEE), liderando equipos y coordinando proyectos financiados por el Banco Mundial (PROMEF) con reducción de costos operativos del 20%. Actualmente aplica Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con impacto financiero medible.\nProyecto destacado: sistema de predicción de churn para 7,043 clientes con ROI 8.10x, recall 96.52% y validación Monte Carlo.\n\nHabilidades Técnicas\n- Lenguajes y librerías: Python, Pandas, NumPy, Scikit-learn, CatBoost, SHAP\n- Machine Learning: Modelado predictivo, clasificación, regresión, optimización de umbrales\n- Bases de datos: SQL, MySQL, Oracle Database, PL/SQL, optimización de consultas\n- ETL y visualización: ETL, Matplotlib, Herramientas de visualización, Visualización de datos, Seaborn, Power BI\n- Cloud: Oracle Cloud Infrastructure (OCI) - Certified Foundations Associate\n- IA y Automatización: LangGraph, RAG, FAISS, Gemini API, n8n, Prompt Engineering, IA Generativa\n- MLOps y gobernanza: Simulaciones Monte Carlo, PSI, circuit breakers, data drift\n- Herramientas adicionales: Git, GitHub, Linux, AutoCAD, ArcGIS, GPS, georreferenciación, excel, Análisis de datos\n\nHabilidades Blandas\nLiderazgo de equipos, gestión de proyectos, optimización de procesos, mejora continua, análisis financiero, toma de decisiones basada en datos, adaptabilidad, aprendizaje continuo, orientación a resultados, comunicación asertiva, trabajo en equipo, planificación estratégica.\n\nExperiencia Profesional\nData Scientist & Business Optimization Consultant (Freelance) | jul 2023 - actualidad\n- Desarrollo de proyectos end-to-end de Ciencia de Datos, Modelado Predictivo e IA orientados a ROI.\n- Modelo de Predicción de Churn para 7,043 clientes con ROI 8.10x validado con Monte Carlo.\n- Diseño de pipelines ETL con Pandas/NumPy y más de 10 visualizaciones accionables.\n- Implementación de flujos de IA Generativa (Gemini) y Prompt Engineering para automatización.\n- Certificación OCI Foundations Associate y formación avanzada en SQL, Oracle, MySQL, PL/SQL.\n\nIngeniero de Distribución II (ENEE) | ene 2015 - jun 2023\n- Liderazgo técnico en operación, mantenimiento y optimización de red eléctrica nacional.\n- Coordinación y supervisión de equipo de 12 personas en mediciones y mantenimiento.\n- Reducción de costos operativos en 20% e incremento de eficiencia operativa en 15% mediante auditorías electro-energéticas.\n- Garantía de integridad de datos y reportes entre campo y sistemas de información.\n\nCoordinador de Levantamiento de Red / Consultor Banco Mundial (PROMEF) | sept 2011 - dic 2014\n- Liderazgo en levantamiento y georreferenciación de red eléctrica nacional con GPS.\n- Consultor del Banco Mundial en proyecto PROMEF: mejora del 20% en eficiencia energética, cumplimiento 100% de hitos.\n\nEducación\n- Especialización en Ciencia de Datos e Inteligencia Artificial | Oracle Next Education (ONE) - Alura Latam | ene 2025 - ene 2026\n- Especialización en Diseño, Modelado y Programación de Bases de Datos (SQL y PL/SQL) | Oracle Academy & INFOP | sept 2024 - sept 2025\n- Ingeniero Industrial | Universidad Católica de Honduras | ene 2004 - dic 2009\n\nCertificaciones\n- Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\n- Inmersión DEV AGENTES DE AI (Alura Latam)\n- IA Generativa - ONE\n- SQL con MySQL Server de Oracle - ONE\n- Programa ONE Tech Foundation G8 - Data Science\n- Estadisticas y Machine Learning G8 - ONE\n- Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\n- Diseño y Programación de Bases de Datos con SQL\n- Fundamentos de Bases de Datos\n\nProyectos Destacados\n- ChurnInsight v3.0: ROI 8.10x, recall 96.52%, validación Monte Carlo.\n- Agente IA orquestado con n8n y LangGraph (RAG, FAISS, Gemini API).\n- Portafolio ONE-Alura con proyectos de Data Science (Predicción de Churn, EDA, etc.).\n\nIdiomas\n- Español: Nativo\n- Inglés: Básico (en mejora continua)\n\nNotas Adicionales\n- Más de 600 horas de formación en Data Science, SQL, Python, estadística y cloud.\n- Experiencia en automatización con n8n y Python.\n- Referencias disponibles a solicitud.`,\n\n  nombre: \"Fausto Enrique Soto Euraque\",\n  titulo: \"Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\",\n  ubicacion: \"Tegucigalpa, Francisco Morazán, Honduras\",\n  email: \"fsotoeu@gmail.com\",\n  telefono: \"+504 3231-0875\",\n  linkedin: \"https://www.linkedin.com/in/fausto-soto\",\n  github: \"https://github.com/fsoto21/One-alura-data-science\",\n  acerca: \"Ingeniero Industrial con más de 10 años en el sector energético (ENEE), liderando equipos y coordinando proyectos financiados por el Banco Mundial (PROMEF) con reducción de costos operativos del 20%. Actualmente aplica Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con impacto financiero medible.\",\n\n  habilidades_tecnicas: [\n    \"Python\", \"Pandas\", \"NumPy\", \"Scikit-learn\", \"CatBoost\", \"SHAP\",\n    \"Machine Learning\", \"Modelado predictivo\", \"clasificación\", \"regresión\", \"optimización de umbrales\",\n    \"SQL\", \"MySQL\", \"Oracle Database\", \"PL/SQL\", \"optimización de consultas\",\n    \"ETL\", \"Matplotlib\", \"Seaborn\", \"Power BI\",\n    \"Oracle Cloud Infrastructure (OCI)\", \"LangGraph\", \"RAG\", \"FAISS\", \"Gemini API\", \"n8n\", \"Prompt Engineering\", \"IA Generativa\",\n    \"MLOps\", \"Simulaciones Monte Carlo\", \"PSI\", \"circuit breakers\", \"data drift\",\n    \"Git\", \"GitHub\", \"Linux\", \"AutoCAD\", \"ArcGIS\", \"GPS\", \"georreferenciación\", \"Excel\"\n  ],\n\n  habilidades_blandas: [\n    \"Liderazgo de equipos\", \"gestión de proyectos\", \"optimización de procesos\", \"mejora continua\",\n    \"análisis financiero\", \"toma de decisiones basada en datos\", \"adaptabilidad\", \"aprendizaje continuo\",\n    \"orientación a resultados\", \"comunicación asertiva\", \"trabajo en equipo\", \"planificación estratégica\"\n  ],\n\n  anos_experiencia: 10,\n\n  educacion: [\n    \"Especialización en Ciencia de Datos e Inteligencia Artificial | Oracle Next Education (ONE) - Alura Latam | ene 2025 - ene 2026\",\n    \"Especialización en Diseño, Modelado y Programación de Bases de Datos (SQL y PL/SQL) | Oracle Academy & INFOP | sept 2024 - sept 2025\",\n    \"Ingeniero Industrial | Universidad Católica de Honduras | ene 2004 - dic 2009\"\n  ],\n\n  certificaciones: [\n    \"Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\",\n    \"Inmersión DEV AGENTES DE AI (Alura Latam)\",\n    \"IA Generativa - ONE\",\n    \"SQL con MySQL Server de Oracle - ONE\",\n    \"Programa ONE Tech Foundation G8 - Data Science\",\n    \"Estadisticas y Machine Learning G8 - ONE\",\n    \"Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\",\n    \"Diseño y Programación de Bases de Datos con SQL\",\n    \"Fundamentos de Bases de Datos\"\n  ],\n\n  idiomas: [\n    { idioma: \"Español\", nivel: \"Nativo\" },\n    { idioma: \"Inglés\", nivel: \"Básico (en mejora continua)\" }\n  ]\n};\n\n// --- OBTENER OFERTAS DESDE EL INPUT 1 ---\nconst ofertasInput = $input.all()[0]?.json;\n\nif (!ofertasInput) {\n  return [{\n    sinOfertas: true,\n    mensaje: 'No se recibieron ofertas desde el parser.',\n    perfil: perfil\n  }];\n}\n\n// Extraer array de ofertas\nlet ofertas = [];\nif (ofertasInput.ofertas && Array.isArray(ofertasInput.ofertas)) {\n  ofertas = ofertasInput.ofertas;\n} else if (Array.isArray(ofertasInput)) {\n  ofertas = ofertasInput;\n} else if (ofertasInput.titulo) {\n  ofertas = [ofertasInput];\n}\n\nif (ofertas.length === 0) {\n  return [{\n    sinOfertas: true,\n    mensaje: 'No se encontraron ofertas en el correo.',\n    perfil: perfil\n  }];\n}\n\n// Combinar cada oferta con el perfil\nconst combinados = ofertas.map(oferta => ({\n  oferta: oferta,\n  perfil: perfil\n}));\n\nreturn combinados;"
+        "jsCode": "// ============================================================\n// NODO CODE COMBINADOR FINAL\n// Contiene el perfil de Fausto incrustado (sin dependencias externas)\n// ============================================================\n\n// --- PERFIL DE FAUSTO (ESTÁTICO) ---\nconst perfil = {\n  text: `Perfil Profesional - Fausto Enrique Soto Euraque\n\nInformación Personal\n- Nombre completo: Fausto Enrique Soto Euraque\n- Título: Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\n- Ubicación: Tegucigalpa, Francisco Morazán, Honduras\n- Email: fsotoeu@gmail.com\n- Teléfono: +504 3231-0875\n- LinkedIn: https://www.linkedin.com/in/fausto-soto\n- GitHub: https://github.com/fsoto21/One-alura-data-science\n\nAcerca de\nIngeniero Industrial con más de 10 años en el sector energético (ENEE), liderando equipos y coordinando proyectos financiados por el Banco Mundial (PROMEF) con reducción de costos operativos del 20%. Actualmente aplica Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con impacto financiero medible.\nProyecto destacado: sistema de predicción de churn para 7,043 clientes con ROI 8.10x, recall 96.52% y validación Monte Carlo.\n\nHabilidades Técnicas\n- Lenguajes y librerías: Python, Pandas, NumPy, Scikit-learn, CatBoost, SHAP\n- Machine Learning: Modelado predictivo, clasificación, regresión, optimización de umbrales\n- Bases de datos: SQL, MySQL, Oracle Database, PL/SQL, optimización de consultas\n- ETL y visualización: ETL, Matplotlib, Herramientas de visualización, Visualización de datos, Seaborn, Power BI\n- Cloud: Oracle Cloud Infrastructure (OCI) - Certified Foundations Associate\n- IA y Automatización: LangGraph, RAG, FAISS, Gemini API, n8n, Prompt Engineering, IA Generativa\n- MLOps y gobernanza: Simulaciones Monte Carlo, PSI, circuit breakers, data drift\n- Herramientas adicionales: Git, GitHub, Linux, AutoCAD, ArcGIS, GPS, georreferenciación, Excel, Análisis de datos, JavaScript, Redes\n- Optimización de procesos: Análisis de procesos, Mejora continua, Herramientas de productividad, Herramientas de informes\n- Microsoft Office: PowerPoint, Word, Access, Visio, Microsoft Project\n- Desarrollo Front-End: HTML, CSS, Figma (Bases sólidas)\n- Formación Complementaria: Docker, Metodologías Ágiles, Emprendimiento\n\nHabilidades Blandas\nLiderazgo de equipos, gestión de proyectos, optimización de procesos, mejora continua, análisis financiero, toma de decisiones basada en datos, adaptabilidad, aprendizaje continuo, orientación a resultados, comunicación asertiva, comunicación efectiva, trabajo en equipo, planificación estratégica, productividad.\n\nExperiencia Profesional\nData Scientist & Business Optimization Consultant (Freelance) | jul 2023 - actualidad\n- Desarrollo de proyectos end-to-end de Ciencia de Datos, Modelado Predictivo e IA orientados a ROI.\n- Modelo de Predicción de Churn para 7,043 clientes con ROI 8.10x validado con Monte Carlo.\n- Diseño de pipelines ETL con Pandas/NumPy y más de 10 visualizaciones accionables.\n- Implementación de flujos de IA Generativa (Gemini) y Prompt Engineering para automatización.\n- Certificación OCI Foundations Associate y formación avanzada en SQL, Oracle, MySQL, PL/SQL.\n\nIngeniero de Distribución II (ENEE) | ene 2015 - jun 2023\n- Liderazgo técnico en operación, mantenimiento y optimización de red eléctrica nacional.\n- Coordinación y supervisión de equipo de 12 personas en mediciones y mantenimiento.\n- Reducción de costos operativos en 20% e incremento de eficiencia operativa en 15% mediante auditorías electro-energéticas.\n- Garantía de integridad de datos y reportes entre campo y sistemas de información.\n\nCoordinador de Levantamiento de Red / Consultor Banco Mundial (PROMEF) | sept 2011 - dic 2014\n- Liderazgo en levantamiento y georreferenciación de red eléctrica nacional con GPS.\n- Consultor del Banco Mundial en proyecto PROMEF: mejora del 20% en eficiencia energética, cumplimiento 100% de hitos.\n\nEducación\n- Especialización en Ciencia de Datos e Inteligencia Artificial | Oracle Next Education (ONE) - Alura Latam | ene 2025 - ene 2026\n- Especialización en Diseño, Modelado y Programación de Bases de Datos (SQL y PL/SQL) | Oracle Academy & INFOP | sept 2024 - sept 2025\n- Ingeniero Industrial | Universidad Católica de Honduras | ene 2004 - dic 2009\n\nCertificaciones\n- Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\n- Inmersión DEV AGENTES DE AI (Alura Latam)\n- IA Generativa - ONE\n- SQL con MySQL Server de Oracle - ONE\n- Programa ONE Tech Foundation G8 - Data Science\n- Estadisticas y Machine Learning G8 - ONE\n- Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\n- Diseño y Programación de Bases de Datos con SQL\n- Fundamentos de Bases de Datos\n\nProyectos Destacados\n- ChurnInsight v3.0: ROI 8.10x, recall 96.52%, validación Monte Carlo.\n- Agente IA orquestado con n8n y LangGraph (RAG, FAISS, Gemini API).\n- Portafolio ONE-Alura con proyectos de Data Science (Predicción de Churn, EDA, etc.).\n\nIdiomas\n- Español: Nativo\n- Inglés: Básico (en mejora continua)\n\nNotas Adicionales\n- Más de 600 horas de formación en Data Science, SQL, Python, estadística y cloud.\n- Experiencia en automatización con n8n y Python.\n- Referencias disponibles a solicitud.`,\n\n  nombre: \"Fausto Enrique Soto Euraque\",\n  titulo: \"Ingeniero Industrial | Data Scientist | Agentes IA & Machine Learning para Optimización y Rentabilidad | OCI Certified\",\n  ubicacion: \"Tegucigalpa, Francisco Morazán, Honduras\",\n  email: \"fsotoeu@gmail.com\",\n  telefono: \"+504 3231-0875\",\n  linkedin: \"https://www.linkedin.com/in/fausto-soto\",\n  github: \"https://github.com/fsoto21/One-alura-data-science\",\n  acerca: \"Ingeniero Industrial con más de 10 años en el sector energético (ENEE), liderando equipos y coordinando proyectos financiados por el Banco Mundial (PROMEF) con reducción de costos operativos del 20%. Actualmente aplica Ciencia de Datos, Machine Learning y Agentes IA para decisiones estratégicas con impacto financiero medible.\",\n\n  // --- ARRAY DE HABILIDADES TÉCNICAS ACTUALIZADO ---\n  habilidades_tecnicas: [\n    // Lenguajes y librerías\n    \"Python\", \"Pandas\", \"NumPy\", \"Scikit-learn\", \"CatBoost\", \"SHAP\",\n    // Machine Learning\n    \"Machine Learning\", \"Modelado predictivo\", \"clasificación\", \"regresión\", \"optimización de umbrales\",\n    // Bases de datos\n    \"SQL\", \"MySQL\", \"Oracle Database\", \"PL/SQL\", \"optimización de consultas\",\n    // ETL y visualización\n    \"ETL\", \"Matplotlib\", \"Herramientas de visualización\", \"Visualización de datos\", \"Seaborn\", \"Power BI\",\n    // Cloud\n    \"Oracle Cloud Infrastructure (OCI)\",\n    // IA y Automatización\n    \"LangGraph\", \"RAG\", \"FAISS\", \"Gemini API\", \"n8n\", \"Prompt Engineering\", \"IA Generativa\",\n    // MLOps y gobernanza\n    \"MLOps\", \"Simulaciones Monte Carlo\", \"PSI\", \"circuit breakers\", \"data drift\",\n    // Herramientas adicionales\n    \"Git\", \"GitHub\", \"Linux\", \"AutoCAD\", \"ArcGIS\", \"GPS\", \"georreferenciación\", \"Excel\", \"Análisis de datos\",\n    // --- NUEVAS HABILIDADES (Optimización de procesos) ---\n    \"Análisis de procesos\",\n    \"Mejora continua\",\n    \"Herramientas de productividad\",\n    \"Herramientas de informes\",\n    // --- NUEVAS HABILIDADES (Microsoft Office) ---\n    \"PowerPoint\",\n    \"Word\",\n    \"Access\",\n    \"Visio\",\n    \"Microsoft Project\",\n    // --- NUEVAS HABILIDADES (Desarrollo Front-End) ---\n    \"HTML\",\n    \"CSS\",\n    \"Figma\",\n    \"Bases de Front-End\",\n    // --- FORMACIÓN COMPLEMENTARIA (Alura) ---\n    \"JavaScript\",\n    \"Redes\",\n    \"Metodologías Ágiles\",\n    \"Emprendimiento\",\n    \"Docker\"\n  ],\n\n  habilidades_blandas: [\n    \"Liderazgo de equipos\", \"gestión de proyectos\", \"optimización de procesos\", \"mejora continua\",\n    \"análisis financiero\", \"toma de decisiones basada en datos\", \"adaptabilidad\", \"aprendizaje continuo\",\n    \"orientación a resultados\", \"comunicación asertiva\", \"comunicación efectiva\", \"trabajo en equipo\", \"planificación estratégica\",\n    \"productividad\"  // <-- añadido de certificaciones Alura\n  ],\n\n  anos_experiencia: 10,\n\n  educacion: [\n    \"Especialización en Ciencia de Datos e Inteligencia Artificial | Oracle Next Education (ONE) - Alura Latam | ene 2025 - ene 2026\",\n    \"Especialización en Diseño, Modelado y Programación de Bases de Datos (SQL y PL/SQL) | Oracle Academy & INFOP | sept 2024 - sept 2025\",\n    \"Ingeniero Industrial | Universidad Católica de Honduras | ene 2004 - dic 2009\"\n  ],\n\n  certificaciones: [\n    \"Oracle Cloud Infrastructure 2025 Certified Foundations Associate (OCI)\",\n    \"Inmersión DEV AGENTES DE AI (Alura Latam)\",\n    \"IA Generativa - ONE\",\n    \"SQL con MySQL Server de Oracle - ONE\",\n    \"Programa ONE Tech Foundation G8 - Data Science\",\n    \"Estadisticas y Machine Learning G8 - ONE\",\n    \"Programador en Base de Datos con PL/SQL (Módulos 01 y 02)\",\n    \"Diseño y Programación de Bases de Datos con SQL\",\n    \"Fundamentos de Bases de Datos\"\n  ],\n\n  idiomas: [\n    { idioma: \"Español\", nivel: \"Nativo\" },\n    { idioma: \"Inglés\", nivel: \"Básico (en mejora continua)\" }\n  ]\n};\n\n// --- OBTENER OFERTAS DESDE EL INPUT 1 ---\nconst ofertasInput = $input.all()[0]?.json;\n\nif (!ofertasInput) {\n  return [{\n    sinOfertas: true,\n    mensaje: 'No se recibieron ofertas desde el parser.',\n    perfil: perfil\n  }];\n}\n\n// Extraer array de ofertas\nlet ofertas = [];\nif (ofertasInput.ofertas && Array.isArray(ofertasInput.ofertas)) {\n  ofertas = ofertasInput.ofertas;\n} else if (Array.isArray(ofertasInput)) {\n  ofertas = ofertasInput;\n} else if (ofertasInput.titulo) {\n  ofertas = [ofertasInput];\n}\n\nif (ofertas.length === 0) {\n  return [{\n    sinOfertas: true,\n    mensaje: 'No se encontraron ofertas en el correo.',\n    perfil: perfil\n  }];\n}\n\n// Combinar cada oferta con el perfil\nconst combinados = ofertas.map(oferta => ({\n  oferta: oferta,\n  perfil: perfil\n}));\n\nreturn combinados;"
       },
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
@@ -377,10 +387,23 @@
     },
     {
       "parameters": {
+        "jsCode": "// Leer TODAS las filas de la pestaña Historial_Completo\nconst items = $input.all();\nconst conteoFaltantes = {};\n\n// Recorrer cada fila del historial\nfor (const item of items) {\n  // Los datos vienen en item.json, con las columnas como propiedades\n  const row = item.json;\n  \n  // Obtener el string de faltantes (ej. \"tableau, r, azure\")\n  const faltantesStr = row.Faltantes || \"\";\n  if (faltantesStr === \"\" || faltantesStr === \"Ninguno\" || faltantesStr === \"Sin coincidencias\") continue;\n  \n  // Dividir por comas y contar\n  const faltantes = faltantesStr.split(',').map(s => s.trim().toLowerCase());\n  for (const hab of faltantes) {\n    if (hab === \"\" || hab === \"ninguno\" || hab === \"sin coincidencias\") continue;\n    conteoFaltantes[hab] = (conteoFaltantes[hab] || 0) + 1;\n  }\n}\n\n// Convertir a array y ordenar descendente\nconst ranking = Object.entries(conteoFaltantes)\n  .map(([habilidad, frecuencia]) => ({ habilidad, frecuencia }))\n  .sort((a, b) => b.frecuencia - a.frecuencia);\n\nif (ranking.length === 0) {\n  return [{\n    habilidad: \"Aún no hay datos\",\n    frecuencia: 0\n  }];\n}\n\nreturn ranking;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        912,
+        160
+      ],
+      "id": "074ad41e-8ff8-48dd-919d-66309aaab694",
+      "name": "Generar Ranking de Gaps"
+    },
+    {
+      "parameters": {
         "operation": "append",
         "documentId": {
           "__rl": true,
-          "value": "https://docs.google.com/spreadsheets/d/1gDXYTwjW-SBW9i140OCY_mfvyqqry6MC72GTpKWU_Cg/edit?gid=0#gid=0",
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_HISTORIAL_SHEET_ID/edit",
           "mode": "url"
         },
         "sheetName": {
@@ -388,12 +411,12 @@
           "value": "gid=0",
           "mode": "list",
           "cachedResultName": "Historial_Completo",
-          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1gDXYTwjW-SBW9i140OCY_mfvyqqry6MC72GTpKWU_Cg/edit#gid=0"
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_HISTORIAL_SHEET_ID/edit"
         },
         "columns": {
           "mappingMode": "defineBelow",
           "value": {
-            "Fecha Procesado": "={{ new Date().toISOString() }}",
+            "Fecha Procesado": "={{ new Date(new Date().getTime() - 6 * 60 * 60 * 1000).toISOString().replace('Z', '-06:00') }}",
             "Empresa": "={{ $json.oferta.empresa }}",
             "Título Vacante": "={{ $json.oferta.titulo }}",
             "Sector": "={{ $json.oferta.sector }}",
@@ -408,7 +431,8 @@
             "Experiencia Requerida": "={{ $json.oferta.experiencia_requerida }}",
             "Idioma Requerido": "={{ $json.oferta.idioma_requerido }}",
             "Nivel Idioma": "={{ $json.oferta.nivel_idioma }}",
-            "Link Vacante": "={{ $json.oferta.url_oferta }}"
+            "Link Vacante": "={{ $json.oferta.url_oferta }}",
+            "Ubicación": "={{ $json.oferta.ubicacion }}"
           },
           "matchingColumns": [],
           "schema": [
@@ -438,6 +462,36 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true
+            },
+            {
+              "id": "Ubicación",
+              "displayName": "Ubicación",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Latitude",
+              "displayName": "Latitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Longitude",
+              "displayName": "Longitude",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
             },
             {
               "id": "Sector",
@@ -555,6 +609,16 @@
               "display": true,
               "type": "string",
               "canBeUsedToMatch": true
+            },
+            {
+              "id": "Fecha_Honduras_Str",
+              "displayName": "Fecha_Honduras_Str",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
             }
           ],
           "attemptToConvertTypes": false,
@@ -565,14 +629,205 @@
       "type": "n8n-nodes-base.googleSheets",
       "typeVersion": 4.7,
       "position": [
-        960,
+        704,
         160
       ],
       "id": "6e476d8f-691c-4277-b1bf-fe623756e243",
-      "name": "Append row in sheet",
+      "name": "Historial Completo",
       "credentials": {
         "googleSheetsOAuth2Api": {
-          "id": "Ic9538qkI5Kx2kyl",
+          "id": "YOUR_GSHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_HISTORIAL_SHEET_ID/edit",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1076099981,
+          "mode": "list",
+          "cachedResultName": "Ranking_Faltantes",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_HISTORIAL_SHEET_ID/edit"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Habilidad": "={{ $json.habilidad }}",
+            "Frecuencia": "={{ $json.frecuencia }}"
+          },
+          "matchingColumns": [
+            "Habilidad"
+          ],
+          "schema": [
+            {
+              "id": "Habilidad",
+              "displayName": "Habilidad",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Frecuencia",
+              "displayName": "Frecuencia",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1120,
+        160
+      ],
+      "id": "f901aa07-de5d-4773-a568-fbd57d471661",
+      "name": "Guardar Ranking de Gaps",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GSHEETS_CREDENTIAL_ID",
+          "name": "Google Sheets OAuth2 API"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Obtener los items de Calculate Compatibilidad (cada item tiene oferta y perfil)\nconst items = $input.all();\nconst resultadosAB = [];\n\nfor (const item of items) {\n  const oferta = item.json.oferta;\n  const perfil = item.json.perfil;\n  \n  // Si no hay oferta o perfil, saltar\n  if (!oferta || !perfil) continue;\n\n  // --- Cálculo del Score A (puntaje técnico actual) ---\n  const scoreA = oferta.puntajeTecnico || 0;\n  \n  // --- Cálculo del Score B (puntaje potencial si NO hubiera faltantes) ---\n  const totalRequisitos = (oferta.requisitos_tecnicos || []).length;\n  const totalCoincidencias = (oferta.coincidencias || []).filter(c => c !== \"Sin coincidencias\").length;\n  const totalFaltantes = (oferta.faltantes || []).filter(f => f !== \"Ninguno\").length;\n  \n  let scoreB = scoreA;\n  if (totalRequisitos > 0) {\n      // Si se cubren todos los faltantes, el número de coincidencias sería totalCoincidencias + totalFaltantes.\n      // Aplicamos la misma lógica de puntuación: base 50, +15 por coincidencia, -5 por faltante.\n      // Pero como ya no habría faltantes, el puntaje sería:\n      const coincidenciasTotales = totalCoincidencias + totalFaltantes;\n      scoreB = 50 + (coincidenciasTotales * 15);\n      // Aseguramos que no pase de 100\n      scoreB = Math.min(100, scoreB);\n  }\n  \n  // Construir el objeto para la hoja AB_Test (con fecha ajustada a Honduras UTC-6)\n  resultadosAB.push({\n      fecha: new Date(new Date().getTime() - 6 * 60 * 60 * 1000).toISOString().replace('Z', '-06:00'),\n      empresa: oferta.empresa || \"No especificado\",\n      titulo: oferta.titulo || \"No especificado\",\n      scoreA: scoreA,\n      scoreB: scoreB,\n      diferencia: scoreB - scoreA,\n      faltantes: (oferta.faltantes || []).join(\", \") || \"Ninguno\"\n  });\n}\n\nreturn resultadosAB;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1040,
+        -336
+      ],
+      "id": "009eab61-3662-4fe4-9f5d-59f86d9ed255",
+      "name": "A/B Test "
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "https://docs.google.com/spreadsheets/d/YOUR_HISTORIAL_SHEET_ID/edit",
+          "mode": "url"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 532328483,
+          "mode": "list",
+          "cachedResultName": "AB_Test",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/YOUR_HISTORIAL_SHEET_ID/edit"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Fecha": "={{ $json.fecha }}",
+            "Empresa": "={{ $json.empresa }}",
+            "Título": "={{ $json.titulo }}",
+            "Score A": "=\t{{ $json.scoreA }}",
+            "Score B": "=\t{{ $json.scoreB }}",
+            "Diferencias ": "={{ $json.diferencia }}",
+            "Faltantes": "={{ $json.faltantes }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Fecha",
+              "displayName": "Fecha",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Empresa",
+              "displayName": "Empresa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Título",
+              "displayName": "Título",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score A",
+              "displayName": "Score A",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Score B",
+              "displayName": "Score B",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Diferencias ",
+              "displayName": "Diferencias ",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Faltantes",
+              "displayName": "Faltantes",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        1232,
+        -336
+      ],
+      "id": "601f478c-efc7-4ca5-887b-c1b200bd9303",
+      "name": "Guardar A/B Test",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "YOUR_GSHEETS_CREDENTIAL_ID",
           "name": "Google Sheets OAuth2 API"
         }
       }
@@ -633,7 +888,12 @@
             "index": 0
           },
           {
-            "node": "Append row in sheet",
+            "node": "Historial Completo",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "A/B Test ",
             "type": "main",
             "index": 0
           }
@@ -688,6 +948,39 @@
           }
         ]
       ]
+    },
+    "Generar Ranking de Gaps": {
+      "main": [
+        [
+          {
+            "node": "Guardar Ranking de Gaps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Historial Completo": {
+      "main": [
+        [
+          {
+            "node": "Generar Ranking de Gaps",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "A/B Test ": {
+      "main": [
+        [
+          {
+            "node": "Guardar A/B Test",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
   },
   "active": false,
@@ -695,10 +988,10 @@
     "executionOrder": "v1",
     "binaryMode": "separate"
   },
-  "versionId": "d80ca074-758c-4cc6-b1a5-3181f07e97f4",
+  "versionId": "4f8ebb0f-fb6a-4182-9131-d0dd4bb07a39",
   "meta": {
     "templateCredsSetupCompleted": true,
-    "instanceId": "48b95c604a8d4e7b7babcf4b75f89348af933bc33b9909c435188418132c90d2"
+    "instanceId": "YOUR_N8N_INSTANCE_ID"
   },
   "id": "yIHcRdDJivqckKga",
   "tags": []
