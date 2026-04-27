@@ -17,9 +17,9 @@ Diseñé una solución end-to-end de datos e IA para automatizar la priorizació
 
 ![Scores](assets/screenshots/01_Scores%20_y%20_metricas%20_clave.png)
 
-![Flujo](assets/screenshots/02_Flujo%20_n8n.png)
+![Flujo n8n](assets/screenshots/02_Flujo_n8n.png)
 
-![Dashboard](assets/screenshots/03_Dashboard%20_Looker_Studio.png)
+![Dashboard Looker Studio](assets/screenshots/03_Dashboard_Looker_Studio.png)
 
 ![Gaps de Habilidades y A/B Testing](assets/screenshots/04_Gaps_AB_Testing.png)
 
