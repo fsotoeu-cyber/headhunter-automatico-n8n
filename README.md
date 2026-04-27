@@ -2,7 +2,8 @@
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> Transformando correos de LinkedIn en decisiones estratégicas de empleo mediante IA, automatización y Business Intelligence.
+> Transformando correos de LinkedIn en decisiones estratégicas de empleo mediante IA, automatización y Business Intelligence.  
+> **+136 vacantes evaluadas · A/B Testing integrado · Radar de mercado en producción.**
 
 ---
 
@@ -24,7 +25,8 @@ Diseñé una solución end-to-end de datos e IA para automatizar la priorizació
 
 ## 🎯 El Problema de Negocio
 
-La búsqueda de empleo es un proceso ineficiente de emparejamiento de datos (data matching). El objetivo de este proyecto no es solo capturar alertas de vacantes, sino optimizar el tiempo y priorizar las oportunidades con mayor probabilidad de ajuste a un perfil técnico maestro, transformando ruido (correos) en decisiones estratégicas.
+La búsqueda de empleo es un proceso ineficiente de emparejamiento de datos.  
+Este sistema no solo captura alertas; optimiza el tiempo, prioriza las oportunidades con mayor probabilidad de ajuste y **transforma ruido en decisiones estratégicas**.
 
 ---
 
@@ -40,15 +42,15 @@ Captura → Transformación (ETL) → IA (NLP) → Scoring → Decisión → Acc
 
 | Fase | Implementación Técnica en n8n | Valor de Negocio |
 |------|-------------------------------|-----------------|
-| 1. Ingesta de Datos (Extract) | `Gmail Trigger` + `Get Message` para capturar HTML y texto plano de alertas laborales | Automatización de entrada de datos en tiempo real |
-| 2. Transformación (ETL) | Nodo `Preparar prompt` (JS): limpieza de HTML, normalización, eliminación de ruido y límite de 8,000 caracteres | Convertir texto no estructurado en datos procesables |
-| 3. IA / NLP | Integración API Groq (Llama 3.3 70B) con salida JSON estructurada e inferencia semántica | Extracción automática de entidades, requisitos y roles |
-| 4. Matching / Scoring | Algoritmo propio en JS con reglas semánticas y ponderación doble (Técnico / Estratégico) | Medición cuantitativa del ajuste perfil-vacante |
+| 1. Ingesta de Datos (Extract) | `Gmail Trigger` + `Get Message` para capturar HTML y texto plano de alertas laborales | Automatización de entrada de datos 24/7 |
+| 2. Transformación (ETL) | Nodo `Preparar prompt` (JS): limpieza de HTML, normalización, eliminación de ruido y límite de 12,000 caracteres | Convertir texto no estructurado en datos procesables |
+| 3. IA / NLP | Integración API Groq (Llama 3.3 70B) con salida JSON estructurada e inferencia ética de requisitos | Extracción automática de entidades, requisitos y roles |
+| 4. Matching / Scoring | Algoritmo propio en JS con reglas semánticas y ponderación (70% Técnico / 30% Estratégico) | Medición cuantitativa del ajuste perfil-vacante |
 | 5. Priorización | Ranking por `Puntaje Total` y selección del Top 2 usando funciones de array (`slice(0,2)`) | Foco exclusivo en oportunidades de mayor probabilidad |
 | 6. Generación de Documentos | Template dinámico para CV y Carta de Presentación HTML adaptada al puesto | Personalización masiva y rápida (CV listo en < 2 min) |
 | 7. Automatización (Acción) | Nodo `Send a message` vía Gmail para entregar el paquete final listo para postular | Acción automática sobre los insights generados |
-| 8. Persistencia (DB) | Google Sheets automatizado — guarda: Fecha, Empresa, Score, Modalidad y Coincidencias | Trazabilidad total y auditoría de la información |
-| 9. Visualización (BI) | Dashboard en Looker Studio interactivo con KPIs de mercado, tendencias y análisis por empresa | Inteligencia de mercado laboral y toma de decisiones basada en datos |
+| 8. Persistencia (DB) | Google Sheets automatizado — guarda puntajes, coincidencias, faltantes, modalidad, ubicación | Trazabilidad total y auditoría de la información |
+| 9. Visualización (BI) | Dashboard en Looker Studio interactivo con KPIs de mercado, mapa geográfico y ranking de empresas | Inteligencia de mercado laboral y toma de decisiones basada en datos |
 
 ---
 
@@ -60,8 +62,17 @@ El núcleo de la toma de decisiones es un modelo de evaluación cuantitativa:
 Puntaje Total = 0.70 × (Score Técnico) + 0.30 × (Score Estratégico)
 ```
 
-- **Score Técnico:** Cruce de requisitos duros de la vacante vs. perfil base con reglas de coincidencia exacta y semántica
-- **Score Estratégico:** Evaluación del sector (foco en Banca/Finanzas) y tamaño de la empresa. La modalidad se registra para análisis visual pero no afecta el puntaje
+- **Score Técnico:** Cruce de requisitos duros de la vacante vs. perfil base con reglas de coincidencia exacta, subcadena y semántica (más de 14 reglas específicas)
+- **Score Estratégico:** Evaluación del sector (foco en Banca/Finanzas) y tamaño de la empresa
+
+---
+
+## 🧪 A/B Testing y Diagnóstico Automático
+
+El flujo incorpora un **módulo de A/B Testing** que permite comparar la compatibilidad actual (**Score A**) contra la compatibilidad potencial si se cerraran todas las brechas de habilidades (**Score B**).  
+La diferencia entre ambos scores cuantifica el valor de cada habilidad, y el sistema genera automáticamente un **ranking de gaps** para orientar el aprendizaje futuro.
+
+📊 **Próxima evolución:** Integración de scoring cultural (tono organizacional, valores) sugerido por la comunidad.
 
 ---
 
@@ -69,13 +80,15 @@ Puntaje Total = 0.70 × (Score Técnico) + 0.30 × (Score Estratégico)
 
 El módulo de Business Intelligence (Looker Studio) extrae inteligencia del mercado laboral en tiempo real:
 
-- **20 ofertas procesadas** de alertas reales de LinkedIn
-- **5 empresas analizadas:** BAC, ASTAY, Joveo AI, BAC Shared Services, PepsiCo
-- **Mejor Match alcanzado:** 76% — Científico de datos / Data Scientist (ASTAY / Joveo AI)
-- **Tendencia de modalidad:** 50% de roles híbridos para posiciones de Data Science / Analytics
+- **136 vacantes evaluadas** desde abril de 2026
+- **50+ empresas analizadas**, incluyendo BAC, Banamex, PepsiCo, Softtek, Deloitte, Banco Davivienda, Grupo Ficohsa
+- **Mejor Match alcanzado:** 79% — Portafolio Analytics Team Lead (BAC Shared Services) y otros roles en banca
+- **Tasa de match perfecto (100% técnico):** 18 vacantes identificadas
+- **Principio GIGO:** Los campos no disponibles aparecen como `null`; el sistema nunca inventa datos
+- **Modalidades detectadas:** Remoto, Híbrido, Presencial — correctamente clasificadas
 - **CV personalizado generado en menos de 2 minutos** por ejecución
 
-🔗 **[Ver Dashboard en vivo — Looker Studio](https://datastudio.google.com/reporting/758c49db-a498-4e68-a247-48294c847401/page/mUcvF)**
+🔗 **[Ver Dashboard en vivo — Looker Studio](https://datastudio.google.com/s/gVJ_qeQiekE)**
 
 ---
 
@@ -83,10 +96,10 @@ El módulo de Business Intelligence (Looker Studio) extrae inteligencia del merc
 
 | Capa | Tecnología |
 |------|-----------|
-| Orquestación | n8n |
+| Orquestación | n8n (Cloud Starter) |
 | LLM / Procesamiento | Groq API · Llama 3.3 70B |
 | Lógica de Negocio | JavaScript (ES6) |
-| Almacenamiento | Google Sheets |
+| Almacenamiento | Google Sheets (Historial, Rankings, A/B Test) |
 | Visualización / BI | Looker Studio |
 | Integraciones | Gmail API |
 
@@ -97,7 +110,6 @@ El módulo de Business Intelligence (Looker Studio) extrae inteligencia del merc
 ### 1. Clonar el repositorio
 ```bash
 git clone https://github.com/fsotoeu-cyber/headhunter-automatico-n8n.git
-```
 
 ### 2. Importar el workflow en n8n
 1. Abre tu instancia de n8n
@@ -133,9 +145,10 @@ GSHEETS_VACANTES_ID=your_google_sheet_id
 ## 🗺️ Roadmap
 
 - [ ] Nodo de Telegram para notificación informal en tiempo real
-- [ ] Scoring de idiomas y modalidad en el algoritmo
-- [ ] Soporte para múltiples fuentes (Indeed, Computrabajo)
-- [ ] Expansión del dashboard con análisis de tendencias semanales
+- [ ] Integración de análisis de tono organizacional y scoring cultural (con auditoría humana)
+- [ ] Expansión del A/B Testing para comparar modelos de IA
+- [ ] Soporte para ingesta de PDFs y fuentes externas (Indeed, Computrabajo)
+- [ ] Dashboard avanzado con tendencias semanales y predicción de demanda de habilidades
 
 ---
 
